@@ -7,17 +7,21 @@
 #   - Downloads and parses expression and metadata
 #   - Performs basic QC and formatting for downstream analysis
 #   - Outputs curated expression and phenotype matrices
+#
+# Author: Christopher Eeles, a Software Developer at BHK Lab. 
 # -----------------------------------------------------------
 ##############################################################
 ## Load libraries
 ##############################################################
 library(GEOquery)
 library(Biobase)
-library(SummarizedExperiment)
+library(oligoClasses)
+library(oligo)
 library(data.table)
 library(R.utils)
 library(qs)
 library(affy)
+library(SummarizedExperiment)
 
 # work around for affy pthread error
 devtools::install_github(
@@ -55,7 +59,7 @@ datasets <- c("GSE21122", "GSE21050", "GSE30929")
 # match the CDF to the dataset
 names(cdfs) <- datasets
 # create a folder/path named 'tmp'
-data_dir <- "tmp" 
+data_dir <- "data/rawdata/tmp" 
 
 # fetch Gencode v33 annotations from BHKLAB-Pachyderm/Annotations
 gencode_url <- "https://github.com/BHKLAB-Pachyderm/Annotations/raw/master/Gencode.v33.annotation.RData"
@@ -72,7 +76,6 @@ gene_annots[,
     c("gene_id_versioned", "gene_id") := .(gene_id, gsub("\\..*$", "", gene_id,))
 ]
 setkeyv(gene_annots, "gene_id")
-
 
 ##############################################################
 ## Download and curate datasets
@@ -121,7 +124,7 @@ for (ds in datasets) {
 ##############################################################
 for (ds in names(se_list)) {
     qsave(se_list[[ds]],
-        file=file.path(data_dir,
+        file=file.path('data/procdata',
             paste0(ds, "_", class(se_list[[ds]])[1], "_", Sys.Date(), ".qs")
         ),
         nthread=getDTthreads()
