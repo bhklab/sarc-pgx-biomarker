@@ -31,8 +31,8 @@ library(ComplexHeatmap)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_out <- 'data/results' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result'
+dir_in <- 'data/procdata' 
+dir_out <- 'data/results' 
   
 ##################################################################
 # Load curated PGx RNA cell line 
