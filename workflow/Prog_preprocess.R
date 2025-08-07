@@ -29,8 +29,8 @@ library(MultiAssayExperiment)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/rawdata'    # '/home/bioinf/bhklab/farnoosh/SARC/Data'
-dir_out <- 'data/procdata'  # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_in <- 'data/rawdata'   
+dir_out <- 'data/procdata'  
   
 ##############################################################################
 # function to curate/extract expression and drug response data from PSets
