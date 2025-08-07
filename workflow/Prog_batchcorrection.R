@@ -29,8 +29,8 @@ library(ggplot2)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata'  #'/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_out <- 'data/results/batchcorrection' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/data'
+dir_in <- 'data/procdata'  
+dir_out <- 'data/results/batchcorrection' 
 
 ########################################################
 # GEO data: assess potential batches across datasets
