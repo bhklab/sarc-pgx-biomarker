@@ -59,7 +59,7 @@ datasets <- c("GSE21122", "GSE21050", "GSE30929")
 # match the CDF to the dataset
 names(cdfs) <- datasets
 # create a folder/path named 'tmp'
-data_dir <- "data/rawdata/tmp" 
+data_dir <- "data/procdata/tmp" 
 
 # fetch Gencode v33 annotations from BHKLAB-Pachyderm/Annotations
 gencode_url <- "https://github.com/BHKLAB-Pachyderm/Annotations/raw/master/Gencode.v33.annotation.RData"
