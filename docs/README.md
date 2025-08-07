@@ -1,8 +1,8 @@
 # sarc-pgx-biomarker
 
-**Authors:** [Farnoosh Abbas Aghababazadeh](https://github.com/RibaA)
+**Authors:** [Farnoosh Abbas Aghababazadeh](https://github.com/RibaA), [Christopher Eeles](https://github.com/ChristopherEeles)
 
-**Contact:** [bhklab.farnooshabbasaghababazadeh@gmail.com](mailto:bhklab.farnooshabbasaghababazadeh@gmail.com)
+**Contact:** [farnoosh.abbasaghababazadeh@uhn.ca](mailto:farnoosh.abbasaghababazadeh@uhn.ca), [christopher.eeles@outlook.com](christopher.eeles@outlook.com)
 
 **Description:** Biomarker Discovery in Soft Tissue Sarcoma Using Pharmacogenomics Data
 
