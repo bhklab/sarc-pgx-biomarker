@@ -2,32 +2,48 @@
 
 ## Purpose
 
-This directory stores **pre-processed data files** that have been derived from raw data but are still intended for use across multiple analyses. Examples include:
+This directory contains **intermediate processed data objects** generated from raw datasets in `data/rawdata/`.  
+The files here are the result of **preprocessing, quality control, harmonization, subtype annotation, and batch correction** steps. They are designed for downstream analyses in the STS biomarker discovery pipeline.
 
-- Normalized data matrices
-- Filtered datasets
-- Aligned sequences
-- Feature extracted data
+Processed objects are stored as `.qs` or `.rda` files, typically containing:
+- **Normalized gene expression matrices** (TPM or normalized microarray intensities)
+- **Drug sensitivity data** (AAC, drug meta-data, cell information)
+- **Clinical metadata** (histology, subtype, treatment, outcome)
+- **Subtype mappings** (harmonized labels across datasets)
+- Packaged as `SummarizedExperiment` or `MultiAssayExperiment` objects
 
-## IMPORTANT: Documentation Requirement
+---
 
-When adding processed data to this directory, you **MUST** document:
+## How to Generate Processed Data
 
-1. The source of the raw data (referencing `docs/data_sources.md`)
-2. The processing steps or pipeline used
-3. Version information for tools used in processing
+To prepare the  `.qs` or `.rda` files from raw inputs, follow these steps:
 
-This documentation ensures research reproducibility and transparency in your data processing workflow.
+### 1. Download Raw Data
 
-## Git Synchronization Notice
+Download the raw dataset from ORCESTRA or GEO as explained in `data/rawdata/` and follow scripts TBD.
 
-**⚠️ FILES IN THIS DIRECTORY ARE NOT SYNCHRONIZED WITH GIT ⚠️**
+### 2. Expression Processing
 
-Processed data files are typically too large for version control. Instead:
+- Retained **protein-coding** genes only and removed duplicated gene names
+- Harmonized **gene identifiers** to HGNC symbols
 
-- Only the directory structure and this README are tracked
-- Document your processing code in version control
-(preferably in `workflow/scripts` or `workflow/notebooks`)!
+### 3. Clinical Metadata Curation
 
-Remember that well-documented processed data makes your research more
-reproducible and accessible to collaborators!
+- Removed **normal tissue** samples from GEO
+- Harmonized histological subtypes:
+  - *Leiomyosarcoma*, *Liposarcoma*, *UPS*, *MFH*
+- Added `Primary.Metastasis` and `type` fields for integrative modeling
+- Retained original subtype labels in `subtype_original`
+
+### 4. Preclinical Metadata Curation
+
+- Added cellosaurus annotations for subtype mapping
+- TBD
+
+### 5. Batch Correction
+- Created combined STS matrices for clinical and preclinical data
+- Separated **Soft Tissue** from **Bone** lineages for downstream analysis
+- Prepared STS-only datasets:
+  - `PGx_gse_rna_sts.qs` — matched genes, harmonized metadata
+
+---
