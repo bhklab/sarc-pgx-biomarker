@@ -228,7 +228,6 @@ dat.annot.ctrp <- data.frame(sampleID = paste(dat.drug.ctrp$sampleid, 'ctrp', se
                             type = 'CL',
                             Type = 'CTRP')
 
-
 dat.drug.nci <-  dat.drug$aac$NCI_Sarcoma$cell_ann_seq
 dat.drug.nci <- dat.drug.nci[dat.drug.nci$dimitrios.soft_vs_bone != 'Bone', ]
 dat.annot.nci <- data.frame(sampleID = paste(dat.drug.nci$sampleid, 'nci', sep='-'),
