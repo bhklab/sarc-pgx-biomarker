@@ -7,7 +7,7 @@ These files are the result of **preprocessing, quality control, harmonization, s
 They are designed for downstream analyses in the STS biomarker discovery pipeline.
 
 Processed objects are stored as `.qs` (fast R serialization) or `.rda` (R binary data) files, typically containing:
-- **Normalized gene expression matrices** (TPM, log2-CPM, or normalized microarray intensities)
+- **Normalized gene expression matrices** (TPM or normalized microarray intensities)
 - **Drug sensitivity data** (AAC, drug metadata, cell annotations)
 - **Clinical metadata** (histology, subtype, treatment, outcome)
 - **Subtype mappings** (harmonized labels across datasets)
