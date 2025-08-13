@@ -25,9 +25,9 @@ source("scripts/Prog_celligner_function.R")
 ## Setup directory
 ##################################################################
 
-dir_data <- 'data/procdata' 
-dir_aligned <- 'data/results/aligned' 
-dir_out <- 'data/results/aligned'  
+dir_data <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_aligned <- 'data/results/aligned' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
+dir_out <- 'data/results/aligned'  #'/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
 
 ##########################################
 ## STS before alignment (AD: scaled data)
