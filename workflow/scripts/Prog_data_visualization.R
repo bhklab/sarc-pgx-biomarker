@@ -31,8 +31,8 @@ library(ComplexHeatmap)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata' 
-dir_out <- 'data/results' 
+dir_in <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_out <- 'data/results' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result'
   
 ##################################################################
 # Load curated PGx RNA cell line 
@@ -41,7 +41,6 @@ dat <- qread(file.path(dir_in, "PGx_gse_rna_sts.qs"))
 dat.annot <- dat$pset_ann
 
 #---- visualizae cell line distribution across PGx RNA data
-
 df <- dat.annot
 group <- unique(df$Type)
 
@@ -73,12 +72,12 @@ df.table <- lapply(1:length(cellID), function(j){
             OncoTree2 = unique(sub.annot$subtype),
             CCLE = sum(sub.annot$Type == "CCLE"),
             GDSC = sum(sub.annot$Type == "GDSC"),
-            NCI = sum(sub.annot$Type == "NCI-Sarcoma"))
+            'NCI-Sarcoma' = sum(sub.annot$Type == "NCI-Sarcoma"))
   
  })
 
 df.table <- do.call(rbind, df.table)
-write.csv(df.table, file = file.path(dir_out, 'data', 'STable1_cellLineInfo_RNA.csv'), row.names = FALSE)
+write.csv(df.table, file = file.path(dir_out, 'data', 'cellLineInfo_RNA.csv'), row.names = FALSE)
 
 # Note: manually update the subtypes ---> OncoType level 2
 
@@ -88,6 +87,7 @@ df <- read.csv(file.path(dir_out, 'data', 'STable_PGx Sarcoma_RNA - STable2.csv'
 rownames(df) <- df$CellLine
 df <- df[, -c(1,2,3)]
 colnames(df)[1] <- 'OncoTree'
+colnames(df)[4] <- 'NCI-Sarcoma'
 
 df$OncoTree <- ifelse(df$OncoTree %in% c('Alveolar Soft Part Sarcoma',
                                                 'Endometrioid Stromal Sarcoma',
@@ -109,10 +109,10 @@ df$OncoTree <- factor(df$OncoTree, levels = custom_order)
 
 # Create annotation data frame
 anno.df <- data.frame(OncoTree = df$OncoTree)
-rownames(anno.df) <- df$CellLine
+rownames(anno.df) <- rownames(df)
 
 # Define annotation
-#colors_vec <- paletteer_d("khroma::bright")[1:9]
+
 colors_vec <- c(
   "#4477AA", # blue
   "#EE6677", # coral
@@ -128,43 +128,67 @@ colors_vec <- c(
 oncotree_colors <- setNames(as.character(colors_vec), levels(df$OncoTree))
   
 #--- Create annotation object with colors mapped to levels
-ha <- rowAnnotation(df = anno.df,
-                      col = list(OncoTree = oncotree_colors),
-                      show_annotation_name = TRUE)
-  
-# Create binary heatmap
-pdf(file.path(dir_out, 'data', "Fig1_cellInfo_RNA.pdf"), width = 5, height = 8)
 
-Heatmap(df[, c("CCLE", "GDSC", "NCI")],
+ha <- HeatmapAnnotation(
+  df = anno.df,
+  col = list(OncoTree = oncotree_colors),
+  show_annotation_name = TRUE
+)
+
+#--- Build matrix with studies as rows, cell lines as columns
+mat0 <- as.matrix(df[, c("CCLE","GDSC","NCI-Sarcoma")])
+# Ensure discrete mapping for "0"/"1"
+storage.mode(mat0) <- "character"
+mat <- t(mat0)  # now rows = studies, cols = cell lines
+
+# Order columns by OncoTree
+ord <- order(df$OncoTree)
+mat <- mat[, ord, drop = FALSE]
+anno.ord <- anno.df[ord,, drop = FALSE]
+ha <- HeatmapAnnotation(
+  df = anno.ord,
+  col = list(OncoTree = oncotree_colors),
+  show_annotation_name = TRUE
+)
+
+# Create binary heatmap
+pdf(file.path(dir_out, 'data', "Fig1_cellInfo_RNA.pdf"), width = 12, height = 2.5)
+
+Heatmap(mat,
         name = "Presence",
         col = c("0" = "white", "1" = "#7C7C7CFF"),
         show_column_names = TRUE,
         show_row_names = TRUE,
         cluster_rows = FALSE,
         cluster_columns = FALSE,
-        right_annotation = ha,
+        #right_annotation = ha,
+        top_annotation = ha,
         row_title = " ",
         column_title = " ",
-        row_order = order(df$OncoTree),
+        #row_order = order(df$OncoTree),
+        column_order = seq_len(ncol(mat)), 
         cell_fun = function(j, i, x, y, width, height, fill) {
           grid.rect(x = x, y = y,
                     width = width,
                     height = height,
-                    gp = gpar(col = "#242424", fill = NA, lwd = 1))
+                    gp = gpar(col = "#242424", fill = NA, lwd = 0.8))
         })
 
 dev.off()
 
+# save ordered and plotted the RNA heatmap (mat is studies x cell lines)
+saveRDS(colnames(mat), file.path(dir_out, "data", "cellline_order_Fig1_RNA.rds"))
 
 #---- Generate Figure 1: cell line overlap between RNA data sources 
 
 df <- read.csv(file.path(dir_out, 'data', 'STable_PGx Sarcoma_RNA - STable2.csv'))
 rownames(df) <- df$CellLine
 df <- df[, -c(2,3)]
+colnames(df)[5] <- 'NCI-Sarcoma'
 
 # Example binary presence matrix
 mat <- df %>%
-  select(CCLE, GDSC, NCI) %>%
+  select(CCLE, GDSC, 'NCI-Sarcoma') %>%
   mutate_all(as.integer)
 
 # Function to compute pairwise overlap counts
@@ -194,17 +218,17 @@ overlap_upper[lower.tri(overlap_upper)] <- NA
 df_heat <- melt(overlap_upper, na.rm = TRUE)
 
 pdf(file.path(dir_out, 'data', "Fig1_cellInfo_acrossstudies_RNA.pdf"), 
-    width = 3, height = 3)
+    width = 2, height = 2)
 
 ggplot(df_heat, aes(Var2, Var1, fill = value)) +
   geom_tile(color = "black") +  
-  geom_text(aes(label = value, color = value), size = 5) +  
+  geom_text(aes(label = value, color = value), size = 4) +  
   scale_color_gradient(low = "white", high = "black") +
   theme_minimal() +
   theme(
     axis.title = element_blank(),            
-    axis.text.x = element_text(size = 10, face = 'bold'),    
-    axis.text.y = element_text(size = 10, face = 'bold'),     
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),    
+    axis.text.y = element_text(size = 6),     
     axis.ticks = element_blank(),             
     axis.line = element_blank(),             
     panel.grid = element_blank(),             
@@ -227,6 +251,7 @@ dat.annot.ctrp <- data.frame(sampleID = paste(dat.drug.ctrp$sampleid, 'ctrp', se
                             Primary.Metastasis = 'NA',
                             type = 'CL',
                             Type = 'CTRP')
+
 
 dat.drug.nci <-  dat.drug$aac$NCI_Sarcoma$cell_ann_seq
 dat.drug.nci <- dat.drug.nci[dat.drug.nci$dimitrios.soft_vs_bone != 'Bone', ]
@@ -281,12 +306,12 @@ df.table <- lapply(1:length(cellID), function(j){
             OncoTree2 = unique(sub.annot$subtype),
             CTRP = sum(sub.annot$Type == "CTRP"),
             GDSC = sum(sub.annot$Type == "GDSC"),
-            NCI = sum(sub.annot$Type == "NCI-Sarcoma"))
+            'NCI-Sarcoma' = sum(sub.annot$Type == "NCI-Sarcoma"))
   
  })
 
 df.table <- do.call(rbind, df.table)
-write.csv(df.table, file = file.path(dir_out, 'data', 'STable1_cellLineInfo_drug.csv'), row.names = FALSE)
+write.csv(df.table, file = file.path(dir_out, 'data', 'cellLineInfo_drug.csv'), row.names = FALSE)
 
 # Note: manually update the subtypes ---> OncoType level 2
 
@@ -296,6 +321,7 @@ df <- read.csv(file.path(dir_out, 'data', 'STable_PGx Sarcoma_drug - STable2.csv
 rownames(df) <- df$CellLine
 df <- df[, -c(1,2,3)]
 colnames(df)[1] <- 'OncoTree'
+colnames(df)[4] <- 'NCI-Sarcoma'
 
 df$OncoTree <- ifelse(df$OncoTree %in% c('Alveolar Soft Part Sarcoma',
                                                 'Endometrioid Stromal Sarcoma',
@@ -317,10 +343,10 @@ df$OncoTree <- factor(df$OncoTree, levels = custom_order)
 
 # Create annotation data frame
 anno.df <- data.frame(OncoTree = df$OncoTree)
-rownames(anno.df) <- df$CellLine
+rownames(anno.df) <- rownames(df)
 
 # Define annotation
-#colors_vec <- paletteer_d("khroma::bright")[1:9]
+
 colors_vec <- c(
   "#4477AA", # blue
   "#EE6677", # coral
@@ -336,43 +362,78 @@ colors_vec <- c(
 oncotree_colors <- setNames(as.character(colors_vec), levels(df$OncoTree))
   
 #--- Create annotation object with colors mapped to levels
-ha <- rowAnnotation(df = anno.df,
-                      col = list(OncoTree = oncotree_colors),
-                      show_annotation_name = TRUE)
-  
-# Create binary heatmap
-pdf(file.path(dir_out, 'data', "Fig1_cellInfo_drug.pdf"), width = 5, height = 8)
 
-Heatmap(df[, c("CTRP", "GDSC", "NCI")],
+ha <- HeatmapAnnotation(
+  df = anno.df,
+  col = list(OncoTree = oncotree_colors),
+  show_annotation_name = TRUE
+)
+
+#--- Build matrix with studies as rows, cell lines as columns
+mat0 <- as.matrix(df[, c("CTRP","GDSC","NCI-Sarcoma")])
+# Ensure discrete mapping for "0"/"1"
+storage.mode(mat0) <- "character"
+mat <- t(mat0)  # now rows = studies, cols = cell lines
+
+#--- Reuse column order from RNA heatmap (if available)
+order_path <- file.path(dir_out, "data", "cellline_order_Fig1_RNA.rds")
+ref_order <- if (file.exists(order_path)) readRDS(order_path) else NULL
+
+if (!is.null(ref_order)) {
+  shared <- intersect(ref_order, colnames(mat))                  
+  extra  <- setdiff(colnames(mat), ref_order)                    
+  extra_ord <- extra[order(df[extra, "OncoTree"], extra)]
+  final_order <- c(shared, extra_ord)
+  mat <- mat[, final_order, drop = FALSE]
+  anno.df <- anno.df[final_order, , drop = FALSE]
+} else {
+  final_order <- colnames(mat)[order(df[colnames(mat), "OncoTree"], colnames(mat))]
+  mat <- mat[, final_order, drop = FALSE]
+  anno.df <- anno.df[final_order, , drop = FALSE]
+}
+
+# Order columns by OncoTree
+ha <- HeatmapAnnotation(
+  df = anno.ord,
+  col = list(OncoTree = oncotree_colors),
+  show_annotation_name = TRUE
+)
+
+# Create binary heatmap
+pdf(file.path(dir_out, 'data', "Fig1_cellInfo_Drug.pdf"), width = 12, height = 2.5)
+
+Heatmap(mat,
         name = "Presence",
         col = c("0" = "white", "1" = "#7C7C7CFF"),
         show_column_names = TRUE,
         show_row_names = TRUE,
         cluster_rows = FALSE,
         cluster_columns = FALSE,
-        right_annotation = ha,
+        #right_annotation = ha,
+        top_annotation = ha,
         row_title = " ",
         column_title = " ",
-        row_order = order(df$OncoTree),
+        #row_order = order(df$OncoTree),
+        column_order = seq_len(ncol(mat)), 
         cell_fun = function(j, i, x, y, width, height, fill) {
           grid.rect(x = x, y = y,
                     width = width,
                     height = height,
-                    gp = gpar(col = "#242424", fill = NA, lwd = 1))
+                    gp = gpar(col = "#242424", fill = NA, lwd = 0.8))
         })
 
 dev.off()
-
 
 #---- Generate Figure 1: cell line overlap between RNA data sources 
 
 df <- read.csv(file.path(dir_out, 'data', 'STable_PGx Sarcoma_drug - STable2.csv'))
 rownames(df) <- df$CellLine
 df <- df[, -c(2,3)]
+colnames(df)[5] <- 'NCI-Sarcoma'
 
 # Example binary presence matrix
 mat <- df %>%
-  select(CTRP, GDSC, NCI) %>%
+  select(CTRP, GDSC, 'NCI-Sarcoma') %>%
   mutate_all(as.integer)
 
 # Function to compute pairwise overlap counts
@@ -402,17 +463,17 @@ overlap_upper[lower.tri(overlap_upper)] <- NA
 df_heat <- melt(overlap_upper, na.rm = TRUE)
 
 pdf(file.path(dir_out, 'data', "Fig1_cellInfo_acrossstudies_drug.pdf"), 
-    width = 3, height = 3)
+    width = 2, height = 2)
 
 ggplot(df_heat, aes(Var2, Var1, fill = value)) +
   geom_tile(color = "black") +  
-  geom_text(aes(label = value, color = value), size = 5) +  
+  geom_text(aes(label = value, color = value), size = 4) +  
   scale_color_gradient(low = "white", high = "black") +
   theme_minimal() +
   theme(
     axis.title = element_blank(),            
-    axis.text.x = element_text(size = 10, face = 'bold'),    
-    axis.text.y = element_text(size = 10, face = 'bold'),     
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),    
+    axis.text.y = element_text(size = 6),     
     axis.ticks = element_blank(),             
     axis.line = element_blank(),             
     panel.grid = element_blank(),             
@@ -422,7 +483,6 @@ ggplot(df_heat, aes(Var2, Var1, fill = value)) +
 
 dev.off()
 
-
 ##################################################################
 # Load curated GEO data
 ##################################################################
@@ -430,7 +490,7 @@ dat <- qread(file.path(dir_in, "PGx_gse_rna_sts.qs"))
 dat.annot <- dat$TCGA_ann
 
 dat.annot$Type <- ifelse(dat.annot$Type %in% c('cohort 1-GSE21050', 'cohort 2-GSE21050'), 
-                        'GSE21050', dat.annt$Type)
+                        'GSE21050', dat.annot$Type)
 
 # Summarize counts: Subtype vs Study (Type)
 mat_df <- dat.annot %>%
@@ -452,7 +512,7 @@ col_fun <- colorRamp2(
 pdf(file.path(dir_out, 'data', "Fig1_geo.pdf"), width = 4.5, height = 3.5)
 
 Heatmap(mat,
-        name = "Count",
+        name = " ",
         col = col_fun,
         cluster_rows = FALSE,
         cluster_columns = FALSE,
@@ -462,8 +522,8 @@ Heatmap(mat,
           # Add border
           grid.rect(x, y, width, height, gp = gpar(col = "#242424", fill = NA, lwd = 0.5))
         },
-        row_names_gp = gpar(fontface = "bold"),
-        column_names_gp = gpar(fontface = "bold"))
+        row_names_gp = gpar(fontsize = 10),
+        column_names_gp = gpar(fontsize = 10))
 
 dev.off()
 
