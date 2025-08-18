@@ -58,9 +58,9 @@ flattenCorrMatrix <- function(cormat, pmat) {
 ##################################################################
 source("scripts/Prog_preprocess.R")
 
-dir_data <- 'data/rawdata'   
-dir_in <- 'data/results/drug'  
-dir_out <- 'data/results/MOA' 
+dir_data <- 'data/rawdata'   # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_in <- 'data/results/drug'  # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/drug/'
+dir_out <- 'data/results/MOA' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/MOA'
 
 #########################################################################################################################
 #########################################################################################################################
@@ -112,6 +112,7 @@ dat_drug_class <- lapply(1:length(target_pathway_included), function(k){
 })
 
 names(dat_drug_class) <- target_pathway_included
+save(dat_drug_class, file = file.path(dir_out, 'moa_info.rda'))
 
 ################################################################################
 ## Pearson correlation as similarity metric  
