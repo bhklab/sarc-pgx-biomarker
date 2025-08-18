@@ -44,6 +44,7 @@ dir_in <- 'data/results/drug'
 dir_pathway <- 'data/rawdata' 
 dir_out <- 'data/results/pathway' 
 
+thr_ora <- 0.15
 ###################################################################
 ## load GO and HALLMARK pathways downloaded from msigdb
 ##################################################################
@@ -139,7 +140,7 @@ ora_hallmark <- lapply(1:length(drugs), function(i){
   df <- dat[dat$drug == drugs[i], ] 
   df <- df[!is.na(df$r), ]
   universe <- df$gene_name 
-  genes <- df[df$padj < 0.15, "gene_name"]
+  genes <- df[df$padj < thr_ora, "gene_name"]
   
   ora_res <- enricher(gene = genes,
                       TERM2GENE = TERM2GENE,
@@ -186,7 +187,7 @@ ora_go <- lapply(1:length(drugs), function(i){
   
   df <- dat[dat$drug == drugs[i], ] 
   universe <- df$gene_name 
-  genes <- df[df$padj < 0.15, "gene_name"]
+  genes <- df[df$padj < thr_ora, "gene_name"]
   
   ora_res <- enricher(gene = genes,
                       TERM2GENE = TERM2GENE,
