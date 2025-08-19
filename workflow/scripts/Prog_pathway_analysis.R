@@ -34,7 +34,6 @@ library(data.table)
 library(magrittr)
 library(fgsea)
 library(reshape2)
-library(clusterProfiler)
 
 ##################################################################
 ## Setup directory
@@ -129,11 +128,6 @@ dat <- qread(file= file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
 dat <- dat[!is.na(dat$r), ]
 drugs <- unique(dat$drug)
 
-# Convert list to TERM2GENE data frame
-TERM2GENE <- stack(hallmark_pathway)         
-colnames(TERM2GENE) <- c("gene", "term")      
-TERM2GENE <- TERM2GENE[, c("term", "gene")]   
-
 ora_hallmark <- lapply(1:length(drugs), function(i){
   
   print(i)
@@ -142,14 +136,11 @@ ora_hallmark <- lapply(1:length(drugs), function(i){
   universe <- df$gene_name 
   genes <- df[df$padj < thr_ora, "gene_name"]
   
-  ora_res <- enricher(gene = genes,
-                      TERM2GENE = TERM2GENE,
-                      universe = universe,
-                      pAdjustMethod = "BH",
-                      pvalueCutoff = 1,
-                      qvalueCutoff = 1,
-                      minGSSize = 10,
-                      maxGSSize = 500)
+  ora_res <- fora(pathways = hallmark_pathway,
+                 genes    = genes,
+                 universe = universe,
+                 minSize = 15,
+                 maxSize = 500)
   
   ora_res  <- as.data.frame(ora_res)
 
@@ -161,8 +152,9 @@ ora_hallmark <- lapply(1:length(drugs), function(i){
 
   }else{
 
-   ora_res  <- ora_res[!is.na(ora_res $p.adjust), ]
-   data.frame(drug = drugs[i], ora_res)
+   ora_res  <- ora_res[!is.na(ora_res$padj), ]
+   ora_res$overlapGenes <- sapply(ora_res$overlapGenes, paste, collapse = ",")
+   data.frame(drug = drugs[i],  ora_res[order(ora_res$padj, ora_res$pval), ])
 
   }
   
@@ -170,33 +162,28 @@ ora_hallmark <- lapply(1:length(drugs), function(i){
 })
 
 ora_hallmark <- dplyr::bind_rows(ora_hallmark)
-ora_hallmark <- ora_hallmark[!is.na(ora_hallmark$pvalu), ]
+ora_hallmark <- ora_hallmark[!is.na(ora_hallmark$pval), ]
 
 qsave(ora_hallmark, file= file.path(dir_out, "hallmark_ora_pathway_drug.qs"))
 write.csv(ora_hallmark, file = file.path(dir_out, "hallmark_ora_pathway_drug.csv"), row.names = FALSE)
 
 ################################################################################
-## ORA: STS gene association result and KEGG
+## ORA: STS gene association result and Go
 ################################################################################
-# Convert list to TERM2GENE data frame
-TERM2GENE <- stack(go_pathway)         
-colnames(TERM2GENE) <- c("gene", "term")      
-TERM2GENE <- TERM2GENE[, c("term", "gene")]   
 
 ora_go <- lapply(1:length(drugs), function(i){
   
+  print(i)
   df <- dat[dat$drug == drugs[i], ] 
+  df <- df[!is.na(df$r), ]
   universe <- df$gene_name 
   genes <- df[df$padj < thr_ora, "gene_name"]
   
-  ora_res <- enricher(gene = genes,
-                      TERM2GENE = TERM2GENE,
-                      universe = universe,
-                      pAdjustMethod = "BH",
-                      pvalueCutoff = 1,
-                      qvalueCutoff = 1,
-                      minGSSize = 10,
-                      maxGSSize = 500)
+  ora_res <- fora(pathways = go_pathway,
+                 genes    = genes,
+                 universe = universe,
+                 minSize = 15,
+                 maxSize = 500)
   
   ora_res  <- as.data.frame(ora_res)
 
@@ -208,8 +195,9 @@ ora_go <- lapply(1:length(drugs), function(i){
 
   }else{
 
-   ora_res  <- ora_res[!is.na(ora_res $p.adjust), ]
-   data.frame(drug = drugs[i], ora_res)
+   ora_res  <- ora_res[!is.na(ora_res$padj), ]
+   ora_res$overlapGenes <- sapply(ora_res$overlapGenes, paste, collapse = ",")
+   data.frame(drug = drugs[i],  ora_res[order(ora_res$padj, ora_res$pval), ])
 
   }
   

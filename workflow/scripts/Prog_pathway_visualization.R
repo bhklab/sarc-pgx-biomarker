@@ -43,6 +43,7 @@ library(UpSetR)
 dir_in <- 'data/results/pathway' 
 dir_out <- 'data/results/pathway/Fig'
 dir_moa <- 'data/results/moa'
+dir_drug <- 'data/procdata'
 
 thr_gsea <- 0.05
 thr_ora <- 0.1
@@ -250,6 +251,35 @@ p
 
 dev.off()
 
+
+# selected drugs
+selected_drugs <- read.csv(file.path(dir_drug, 'validation', 'selected_drugs.csv'))$drug
+pathway_heatmap <- pathway_heatmap[, colnames(pathway_heatmap) %in% selected_drugs]
+
+pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_selected_drugs.pdf"),
+     width = 16, height = 9)
+
+p1 <- Heatmap(pathway_heatmap, 
+              col = colorRamp2(c(-4, 0, 4), c("#006837", "#e0e0e0", "#8e0152")),
+              cluster_columns = FALSE,
+              cluster_rows = FALSE,
+              show_row_names = TRUE, 
+              show_column_names = TRUE,
+              na_col = "#e0e0e0",
+              row_names_gp = gpar(fontsize = 8),
+              column_names_gp = gpar(fontsize = 9),
+              heatmap_legend_param = list(legend_direction = "horizontal",
+                                          title = "enrichment score",
+                                          title_position = "topcenter"),
+              rect_gp = gpar(col = "grey", lwd = 0.5),
+              width = ncol(pathway_heatmap)*unit(5, "mm")
+              )
+
+p <-  draw(p1, show_heatmap_legend = TRUE, heatmap_legend_side = "bottom")  
+p
+
+dev.off()
+
 ##################################################################################################################
 ################################################### HALLMARK (ORA) ##############################################
 ##################################################################################################################
@@ -261,7 +291,7 @@ drugs <- unique(fgseaRes$drug)
 sig <- sapply(1:length(drugs), function(k){
     
     sub_dat <- fgseaRes[fgseaRes$drug == drugs[k], ]
-    nrow(sub_dat[sub_dat$p.adjust < thr_ora, ])
+    nrow(sub_dat[sub_dat$padj < thr_ora, ])
     
   })
   
@@ -303,9 +333,9 @@ dev.off()
 #############################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'hallmark_ora_pathway_drug.qs'))
-fgseaRes <- fgseaRes[order(fgseaRes$p.adjust), ]
-fgseaRes$ID <- substr(fgseaRes$ID, 10, nchar(fgseaRes$ID))
-sig <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+fgseaRes <- fgseaRes[order(fgseaRes$padj), ]
+fgseaRes$pathway <- substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))
+sig <- fgseaRes[fgseaRes$padj < thr_ora, ]
 drugs <- unique(sig$drug)
 
 df <- sapply(1:length(drugs), function(k){
@@ -327,7 +357,7 @@ for(i in 1:length(drugs)){
   pdf(file.path(dir_out, 'ORA/HALLMARK', paste(drugs[i], "hallmark_FDR_0.1.pdf", sep="_")),
       width = 8, height = 5)
   # Plot significant pathways as points with a gradient color based on p-value and size based on a 'size' variable.
-  p <- ggplot(df, aes(y=reorder(ID, Count),x= FoldEnrichment)) + geom_point(aes(color=p.adjust, size=Count)) + 
+  p <- ggplot(df, aes(y=reorder(pathway, overlap),x= foldEnrichment)) + geom_point(aes(color=padj, size=overlap)) + 
     scale_color_gradientn(colours = c("#084594","#b10026")) + 
     labs(x='fold Enrichment', y=NULL ) + 
     theme(
@@ -353,7 +383,7 @@ for(i in 1:length(drugs)){
 ################################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'hallmark_ora_pathway_drug.qs'))
-sig <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+sig <- fgseaRes[fgseaRes$padj < thr_ora, ]
 drugs <- unique(sig$drug)
 
 df <- sapply(1:length(drugs), function(k){
@@ -372,8 +402,8 @@ df <- df[df$drug %in% c("Doxorubicin", "Gemcitabine", "Eribulin",
 
 sig_gene_drug <- lapply(1:nrow(df), function(k){
   
-  sub_dat <- fgseaRes[fgseaRes$drug == df$drug[k] & fgseaRes$p.adjust < thr_ora, ]
-  sub_dat$ID
+  sub_dat <- fgseaRes[fgseaRes$drug == df$drug[k] & fgseaRes$padj < thr_ora, ]
+  sub_dat$pathway
   
 })
 
@@ -393,27 +423,63 @@ dev.off()
 ################################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'hallmark_ora_pathway_drug.qs'))
-sig_dat <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+sig_dat <- fgseaRes[fgseaRes$padj < thr_ora, ]
 
 drugs <- names(table(sig_dat$drug)[order(table(sig_dat$drug), decreasing  = TRUE)])
 sig_dat <- sig_dat[sig_dat$drug %in% drugs, ]
-pathway_id <- unique(sig_dat$ID)
-tab <- table(sig_dat$ID, sig_dat$drug)           
-bin_mat <- (tab > 0) * 1L                             
-keep_rows <- rowSums(bin_mat) >= 2
-bin_mat <- bin_mat[keep_rows, , drop = FALSE]
+pathway_id <- unique(sig_dat$pathway)
+tab <- table(sig_dat$pathway, sig_dat$drug)           
+pathway_heatmap <- (tab > 0) * 1L                             
+keep_rows <- rowSums(pathway_heatmap) >= 2
+pathway_heatmap <- pathway_heatmap[keep_rows, , drop = FALSE]
 
 # order columns (drugs) by total significant pathways; rows likewise
-col_order <- order(colSums(bin_mat), decreasing = TRUE)
-row_order <- order(rowSums(bin_mat), decreasing = TRUE)
-bin_mat <- bin_mat[row_order, col_order, drop = FALSE]
-rownames(bin_mat) <- substr(rownames(bin_mat) , 10, nchar(rownames(bin_mat) ))
+col_order <- order(colSums(pathway_heatmap), decreasing = TRUE)
+row_order <- order(rowSums(pathway_heatmap), decreasing = TRUE)
+pathway_heatmap <- pathway_heatmap[row_order, col_order, drop = FALSE]
+rownames(pathway_heatmap) <- substr(rownames(pathway_heatmap) , 10, nchar(rownames(pathway_heatmap) ))
+
+pathway_heatmap <- pathway_heatmap[, colSums(pathway_heatmap) != 0]
 
 pdf(file=file.path(dir_out, "heatmap_hallmark_ora.pdf"),
      width = 16, height = 9)
 
 p <- Heatmap(
-  bin_mat,
+  pathway_heatmap,
+  name = "Significance",
+  col = c(`0` = "white", `1` = "#2C7FB8"),
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  na_col = "white",
+  row_names_gp = gpar(fontsize = 8),
+  column_names_gp = gpar(fontsize = 9),
+  rect_gp = gpar(col = "grey", lwd = 0.5),
+  heatmap_legend_param = list(
+    at = c(0, 1),
+    labels = c("NS", "FDR < 0.1"),
+    legend_direction = "horizontal",
+    title_position = "topcenter",
+    title = NULL
+  ),
+  width = ncol(bin_mat) * unit(5, "mm")
+)
+
+draw(p, show_heatmap_legend = TRUE, heatmap_legend_side = "bottom")
+
+dev.off()
+
+## selected drugs
+
+selected_drugs <- read.csv(file.path(dir_drug, 'validation', 'selected_drugs.csv'))$drug
+pathway_heatmap <- pathway_heatmap[, colnames(pathway_heatmap) %in% selected_drugs]
+
+pdf(file=file.path(dir_out, "heatmap_hallmark_ora_selected_drugs.pdf"),
+     width = 16, height = 9)
+
+p <- Heatmap(
+  pathway_heatmap,
   name = "Significance",
   col = c(`0` = "white", `1` = "#2C7FB8"),
   cluster_rows = FALSE,
@@ -508,63 +574,6 @@ dev.off()
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-gsea <- qread(file.path(dir_in, "hallmark_gsea_pathway_drug.qs"))
-ora  <- qread(file.path(dir_in, "hallmark_ora_pathway_drug.qs"))
-
-# Harmonize pathway names like you do elsewhere
-norm_name <- function(x) substr(x, 10, nchar(x))
-
-sig_gsea <- gsea[gsea$padj < thr_gsea, ]
-sig_ora <- ora[ora$padj < thr_ora, ]
-drugs <- intersect(sig_gsea$drug, sig_ora$drug)
-
-for(i in 1:length(drugs)){
- 
- print(i)
-gsea_d <- sig_gsea[sig_gsea$drug == drugs[i], ]
-ora_d <- sig_ora[sig_ora$drug == drugs[i], ]
-
-# Sets
-set_gsea <- unique(gsea_d$pathway)
-set_ora  <- unique(ora_d$pathway)
-
-pdf(file=file.path(dir_out, 'venn/HALLMARK', paste(drugs[i], "ora_gsea.pdf", sep="_")),
-     width = 5.5, height = 5.5)
-
-venn.plot <- draw.pairwise.venn(
-  area1 = length(set_gsea),
-  area2 = length(set_ora),
-  cross.area = length(intersect(set_gsea, set_ora)),
-  category = c("GSEA", "ORA"),
-  fill = c("#98adbdff", "#e5b3caff"),
-  alpha = c(0.5, 0.5),
-  cex = 1.2, cat.cex = 1.2
-)
-grid.draw(venn.plot)
-
-dev.off()
-
-}
 
 ##################################################################################################################
 ################################################### GO:BP (GSEA) ##############################################
@@ -765,6 +774,34 @@ pathway_heatmap_filt <- pathway_heatmap[keep, , drop = FALSE]
 pathway_heatmap_filt <- pathway_heatmap_filt[, colSums(is.na(pathway_heatmap_filt)) != nrow(pathway_heatmap_filt), drop = FALSE]
 
 pdf(file=file.path(dir_out, "heatmap_go_gsea.pdf"),
+     width = 16, height = 1)
+
+p1 <- Heatmap(pathway_heatmap_filt, 
+              col = colorRamp2(c(-3, 0, 3), c("#006837", "#e0e0e0", "#8e0152")),
+              cluster_columns = FALSE,
+              cluster_rows = FALSE,
+              show_row_names = TRUE, 
+              show_column_names = TRUE,
+              na_col = "#e0e0e0",
+              row_names_gp = gpar(fontsize = 8),
+              column_names_gp = gpar(fontsize = 9),
+              heatmap_legend_param = list(legend_direction = "horizontal",
+                                          title = "enrichment score",
+                                          title_position = "topcenter"),
+              rect_gp = gpar(col = "grey", lwd = 0.5),
+              width = ncol(pathway_heatmap)*unit(5, "mm")
+              )
+
+p <-  draw(p1, show_heatmap_legend = TRUE, heatmap_legend_side = "bottom")  
+p
+
+dev.off()
+
+# selected drugs
+selected_drugs <- read.csv(file.path(dir_drug, 'validation', 'selected_drugs.csv'))$drug
+pathway_heatmap_filt <- pathway_heatmap_filt[, colnames(pathway_heatmap_filt) %in% selected_drugs]
+
+pdf(file=file.path(dir_out, "heatmap_go_gsea_selected_drugs.pdf"),
      width = 16, height = 12)
 
 p1 <- Heatmap(pathway_heatmap_filt, 
@@ -799,7 +836,7 @@ drugs <- unique(fgseaRes$drug)
 sig <- sapply(1:length(drugs), function(k){
     
     sub_dat <- fgseaRes[fgseaRes$drug == drugs[k], ]
-    nrow(sub_dat[sub_dat$p.adjust < thr_ora, ])
+    nrow(sub_dat[sub_dat$padj < thr_ora, ])
     
   })
   
@@ -841,9 +878,9 @@ dev.off()
 #############################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'go_ora_pathway_drug.qs'))
-fgseaRes <- fgseaRes[order(fgseaRes$p.adjust), ]
-fgseaRes$ID <- substr(fgseaRes$ID, 6, nchar(fgseaRes$ID))
-sig <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+fgseaRes <- fgseaRes[order(fgseaRes$padj), ]
+fgseaRes$pathway <- substr(fgseaRes$pathway, 6, nchar(fgseaRes$pathway))
+sig <- fgseaRes[fgseaRes$padj < thr_ora, ]
 drugs <- unique(sig$drug)
 
 df <- sapply(1:length(drugs), function(k){
@@ -869,7 +906,7 @@ for(i in 1:length(drugs)){
   pdf(file.path(dir_out, 'ORA/GO', paste(drugs[i], "go_FDR_0.1.pdf", sep="_")),
       width = 8, height = 5)
   # Plot significant pathways as points with a gradient color based on p-value and size based on a 'size' variable.
-  p <- ggplot(df, aes(y=reorder(ID, Count),x= FoldEnrichment)) + geom_point(aes(color=p.adjust, size=Count)) + 
+  p <- ggplot(df, aes(y=reorder(pathway, overlap),x= foldEnrichment)) + geom_point(aes(color=padj, size=overlap)) + 
     scale_color_gradientn(colours = c("#084594","#b10026")) + 
     labs(x='fold Enrichment', y=NULL ) + 
     theme(
@@ -895,7 +932,7 @@ for(i in 1:length(drugs)){
 ################################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'go_ora_pathway_drug.qs'))
-sig <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+sig <- fgseaRes[fgseaRes$padj < thr_ora, ]
 drugs <- unique(sig$drug)
 
 df <- sapply(1:length(drugs), function(k){
@@ -914,8 +951,8 @@ df <- df[df$drug %in% c("Doxorubicin", "Gemcitabine", "Eribulin",
 
 sig_gene_drug <- lapply(1:nrow(df), function(k){
   
-  sub_dat <- fgseaRes[fgseaRes$drug == df$drug[k] & fgseaRes$p.adjust < thr_ora, ]
-  sub_dat$ID
+  sub_dat <- fgseaRes[fgseaRes$drug == df$drug[k] & fgseaRes$padj < thr_ora, ]
+  sub_dat$pathway
   
 })
 
@@ -935,12 +972,12 @@ dev.off()
 ################################################################################
 
 fgseaRes <- qread(file.path(dir_in, 'go_ora_pathway_drug.qs'))
-sig_dat <- fgseaRes[fgseaRes$p.adjust < thr_ora, ]
+sig_dat <- fgseaRes[fgseaRes$padj < thr_ora, ]
 
 drugs <- names(table(sig_dat$drug)[order(table(sig_dat$drug), decreasing  = TRUE)])
 sig_dat <- sig_dat[sig_dat$drug %in% drugs, ]
-pathway_id <- unique(sig_dat$ID)
-tab <- table(sig_dat$ID, sig_dat$drug)           
+pathway_id <- unique(sig_dat$pathway)
+tab <- table(sig_dat$pathway, sig_dat$drug)           
 pathway_heatmap <- (tab > 0) * 1L                             
 keep_rows <- rowSums(pathway_heatmap) >= 2
 pathway_heatmap <- pathway_heatmap[keep_rows, , drop = FALSE]
@@ -977,7 +1014,41 @@ p <- Heatmap(
     title_position = "topcenter",
     title = NULL
   ),
-  width = ncol(pathway_heatmap_filt) * unit(5, "mm")
+  width = ncol(bin_mat) * unit(5, "mm")
+)
+
+draw(p, show_heatmap_legend = TRUE, heatmap_legend_side = "bottom")
+
+dev.off()
+
+
+# selected drugs
+selected_drugs <- read.csv(file.path(dir_drug, 'validation', 'selected_drugs.csv'))$drug
+pathway_heatmap <- pathway_heatmap[, colnames(pathway_heatmap) %in% selected_drugs]
+
+pdf(file=file.path(dir_out, "heatmap_go_ora_selected_drugs.pdf"),
+     width = 16, height = 16)
+
+p <- Heatmap(
+  pathway_heatmap,
+  name = "Significance",
+  col = c(`0` = "white", `1` = "#2C7FB8"),
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  na_col = "white",
+  row_names_gp = gpar(fontsize = 8),
+  column_names_gp = gpar(fontsize = 9),
+  rect_gp = gpar(col = "grey", lwd = 0.5),
+  heatmap_legend_param = list(
+    at = c(0, 1),
+    labels = c("NS", "FDR < 0.1"),
+    legend_direction = "horizontal",
+    title_position = "topcenter",
+    title = NULL
+  ),
+  width = ncol(bin_mat) * unit(5, "mm")
 )
 
 draw(p, show_heatmap_legend = TRUE, heatmap_legend_side = "bottom")
