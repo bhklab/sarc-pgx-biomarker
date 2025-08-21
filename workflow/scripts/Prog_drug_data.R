@@ -37,9 +37,9 @@ library(VennDiagram)
 ## Setup directory
 ##################################################################
 
-dir_data <- 'data/procdata' 
-dir_aligned <- 'data/results/aligned' 
-dir_out <-  'data/results/drug' 
+dir_data <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_aligned <- 'data/results/aligned' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
+dir_out <-  'data/results/drug' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/drug/'
 
 ################################################################################
 ## Load drug response data
@@ -47,6 +47,14 @@ dir_out <-  'data/results/drug'
 dat <- qread(file= file.path(dir_data, "PGx_sarc_data.qs"))
 
 gene_ann <- dat$rna$CCLE$marray_gene_ann
+
+ccle_aac <- dat$aac$CCLE$drug_aac
+keep <- dat$aac$CCLE$cell_ann_seq[dat$aac$CCLE$cell_ann_seq$tissueid != 'Bone', 'sampleid']
+ccle_aac <- ccle_aac[, keep]
+remove <- sapply(1:nrow(ccle_aac), function(k){
+  sum(is.na(ccle_aac[k, ]))/ncol(ccle_aac)
+})
+ccle_aac <- ccle_aac[- which(remove > 0.60), ] # 22 out of 24 
 
 ctrp_aac <- dat$aac$CTRP$drug_aac
 keep <- dat$aac$CTRP$cell_ann_seq[dat$aac$CTRP$cell_ann_seq$tissueid != 'Bone', 'sampleid']
@@ -78,7 +86,7 @@ n13 <- length(intersect(rownames(ctrp_aac), rownames(nci_aac)))
 n23 <- length(intersect(rownames(gdsc_aac), rownames(nci_aac)))
 n123 <- length(intersect(intersect(rownames(ctrp_aac), rownames(gdsc_aac)), rownames(nci_aac)))
 
-pdf(file = file.path(dir_out, "venn_drug.pdf"), width = 5, height = 5)
+pdf(file = file.path(dir_out, "venn_drug.pdf"), width = 5.5, height = 5.5)
 
 venn.plot <- draw.triple.venn(
   area1 = n1,
@@ -88,12 +96,12 @@ venn.plot <- draw.triple.venn(
   n13 = n13,
   n23 = n23,
   n123 = n123,
-  category = c("CTRP", "GDSC", "NCI"),
+  category = c("CCLE/CTRP", "GDSC", "NCI-Sarcoma"),
   fill = c("#64894DFF", "#99B6BDFF", "#ECC9A0FF"),
   cat.col = c("#252525", "#252525", "#252525"),
   #lty = "dashed",
   cex = 2,
-  cat.cex = 1.5
+  cat.cex = 1
 )
 
 dev.off()
@@ -102,10 +110,11 @@ dev.off()
 ## Drugs overlap between data sources
 ##################################################################
 
-df <- data.frame(drug = c(rownames(ctrp_aac), rownames(gdsc_aac), rownames(nci_aac)),
-                 group = c(rep("CCLE/CTRP", nrow(ctrp_aac)), 
+df <- data.frame(drug = c(rownames(ccle_aac), rownames(ctrp_aac), rownames(gdsc_aac), rownames(nci_aac)),
+                 group = c(rep("CCLE", nrow(ccle_aac)),
+                           rep("CTRP", nrow(ctrp_aac)), 
                            rep("GDSC", nrow(gdsc_aac)),
-                           rep("NCI", nrow(nci_aac))) )
+                           rep("NCI-Sarcoma", nrow(nci_aac))) )
 
 drug <- unique(df$drug)
 
@@ -114,9 +123,10 @@ df.table <- lapply(1:length(drug), function(j){
   sub.df <- df[df$drug == drug[j], ] 
 
   data.frame(drug = drug[j],
-             'CCLE/CTRP' = sum(sub.df$group == "CCLE/CTRP"),
+             CCLE = sum(sub.df$group == "CCLE"),
+             CTRP = sum(sub.df$group == "CTRP"),
              GDSC = sum(sub.df$group == "GDSC"),
-             NCI = sum(sub.df$group == "NCI"))
+             'NCI-Sarcoma' = sum(sub.df$group == "NCI-Sarcoma"))
   
 })
 
@@ -124,8 +134,9 @@ df.table <- do.call(rbind, df.table)
 write.csv(df.table, file = file.path(dir_out, 'STable4_drugInfo.csv'), row.names = FALSE)
 
 # Example binary presence matrix
+colnames(df.table)[5] <- 'NCI-Sarcoma'
 mat <- df.table %>%
-  select(CCLE.CTRP, GDSC, NCI) %>%
+  select(CCLE, CTRP, GDSC, 'NCI-Sarcoma') %>%
   mutate_all(as.integer)
 
 # Function to compute pairwise overlap counts
@@ -144,8 +155,6 @@ overlap_matrix <- function(x) {
 }
 
 overlap_mat <- overlap_matrix(mat)
-rownames(overlap_mat)[1] <- 'CCLE/CTRP'
-colnames(overlap_mat)[1] <- 'CCLE/CTRP'
 
 # View full symmetric matrix
 print(overlap_mat)
@@ -166,8 +175,8 @@ ggplot(df_heat, aes(Var2, Var1, fill = value)) +
   theme_minimal() +
   theme(
     axis.title = element_blank(),            
-    axis.text.x = element_text(size = 10, face = 'bold'),    
-    axis.text.y = element_text(size = 10, face = 'bold'),     
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),     
+    axis.text.y = element_text(size = 6),     
     axis.ticks = element_blank(),             
     axis.line = element_blank(),             
     panel.grid = element_blank(),             
