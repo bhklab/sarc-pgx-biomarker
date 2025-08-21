@@ -29,8 +29,8 @@ library(ggplot2)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata'  
-dir_out <- 'data/results/batchcorrection' 
+dir_in <- 'data/procdata'  #'/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
+dir_out <- 'data/results/batchcorrection' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/data'
 
 ########################################################
 # GEO data: assess potential batches across datasets
@@ -40,9 +40,10 @@ dat <- qread(file.path(dir_in, "PGx_gse_rna_sts.qs"))
 
 dat_mat <- dat$TCGA_mat
 dat_ann <- dat$TCGA_ann
+dat_ann$Type <- ifelse(dat_ann$Type %in% c("cohort 1-GSE21050", "cohort 2-GSE21050"), "GSE21050", dat_ann$Type)
 
 group <- factor(dat_ann$Type)
-cols <- c("#FED789FF", "#FED789FF", "#476F84FF", "#72874EFF")
+cols <- c("#FED789FF", "#476F84FF", "#72874EFF")
 
 pca_results <- prcomp(dat_mat, scale = TRUE)
 var_res <- pca_results$sdev^2 / sum(pca_results$sdev^2)
@@ -56,8 +57,6 @@ ind= group == levels(group)[2]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[2])
 ind= group == levels(group)[3]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
-ind= group == levels(group)[4]
-points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[4])
 legend('center',paste(levels(group)), pch="+",col=cols, cex=0.7)
 
 dev.off()
@@ -92,9 +91,10 @@ dat <- qread(file.path(dir_in, "PGx_gse_rna_sts.qs"))
 dat_mat <- dat$TCGA_mat
 dat_mat <- t(dat_mat)
 dat_ann <- dat$TCGA_ann
+dat_ann$Type <- ifelse(dat_ann$Type %in% c("cohort 1-GSE21050", "cohort 2-GSE21050"), "GSE21050", dat_ann$Type)
 
 batch <- dat_ann$Type
-batch <- ifelse(batch %in% c("cohort 1-GSE21050", "cohort 2-GSE21050"), "GSE21050", "GSE21122/GSE30929")
+batch <- ifelse(batch == "GSE21050", "GSE21050", "GSE21122/GSE30929")
 batch <- as.factor(batch)
 
 combat_mat <- ComBat(dat=dat_mat, batch=batch, mod=NULL)
@@ -103,7 +103,7 @@ dat_mat <- t(combat_mat)
 ## regenerate figures after correction
 
 group <- factor(dat_ann$Type)
-cols <- c("#FED789FF", "#FED789FF", "#476F84FF", "#72874EFF")
+cols <- c("#FED789FF", "#476F84FF", "#72874EFF")
 
 pca_results <- prcomp(dat_mat, scale = TRUE)
 var_res <- pca_results$sdev^2 / sum(pca_results$sdev^2)
@@ -117,13 +117,11 @@ ind= group == levels(group)[2]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[2])
 ind= group == levels(group)[3]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
-ind= group == levels(group)[4]
-points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[4])
-legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.5)
+#legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.5)
 
 dev.off()
 
-
+# part II: distribution of sts subtypes
 group <- dat_ann$subtype
 group <- factor(group)
 
@@ -131,9 +129,7 @@ cols <- c( "#AAC197FF", "#4A7169FF",  "#9A9391FF", "#BC8E7DFF")
 
 pdf(file= file.path(dir_out, "pca_gse_subtype_after_correction.pdf"), width = 5, height = 5)
 
-
-plot(pca_results$x[,1],pca_results$x[,2],pch="+", xlab='PC1 (7%)',ylab='PC2 (6%)', 
-     main='GEO RNA data')
+plot(pca_results$x[,1],pca_results$x[,2],pch="+", xlab='PC1 (7%)',ylab='PC2 (6%)')
 ind= group == levels(group)[1]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[1])
 ind= group == levels(group)[2]
@@ -142,7 +138,7 @@ ind= group == levels(group)[3]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
 ind= group == levels(group)[4]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[4])
-legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.5)
+#legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.5)
 
 dev.off()
 
@@ -194,6 +190,76 @@ legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.7)
 
 dev.off()
 
+## part II: distribution of sts subtypes
+## load cell line subtype annotation 
+df <- read.csv(file.path('C:/STS-PGx-Biomarker/data/results/data', 'STable_PGx Sarcoma_RNA - STable2.csv'))
+
+group <- dat_ann$subtype
+group <- sapply(1:length(group), function(k){
+     unique(df[df$OncoTree2_Psets == group[k], 'OncoTree2'])
+})
+
+group <- ifelse(group %in% c('Alveolar Soft Part Sarcoma',
+                             'Endometrioid Stromal Sarcoma',
+                             'Epithelioid Sarcoma',
+                             'Malignant Peripheral Nerve Sheath Tumor',
+                             'Spindle Cell Sarcoma', 'Sarcoma'), 'Other', group)
+
+custom_order <- c("Rhabdomyosarcoma", 
+                  "Synovial Sarcoma", 
+                  "Fibrosarcoma", 
+                  "Leiomyosarcoma", 
+                  "Liposarcoma", 
+                  "Chondrosarcoma",
+                  "Pleomorphic Sarcoma",
+                  "Uterine Corpus Sarcoma",
+                  "Other")
+
+group <- factor(group, levels = custom_order)
+
+# Define annotation
+cols <- c(
+  "#4477AA", # blue
+  "#EE6677", # coral
+  "#228833", # green
+  "#CCBB44", # mustard
+  "#66CCEE", # sky blue
+  "#AA3377", # purple
+  "#DDCC77", # tan
+  "#994455", # dark rose
+  "#D3D3D3"  # forest green
+)
+
+# Create binary heatmap
+pca_results <- prcomp(dat_mat, scale = TRUE)
+var_res <- pca_results$sdev^2 / sum(pca_results$sdev^2)
+
+pdf(file= file.path(dir_out, "pca_pset_subtype_before_correction.pdf"), width = 5, height = 5)
+
+plot(pca_results$x[,1],pca_results$x[,2],pch="+", xlab='PC1 (52%)',ylab='PC2 (19%)')
+ind= group == levels(group)[1]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[1])
+ind= group == levels(group)[2]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[2])
+ind= group == levels(group)[3]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
+ind= group == levels(group)[4]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[4])
+ind= group == levels(group)[5]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[5])
+ind= group == levels(group)[6]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[6])
+ind= group == levels(group)[7]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[7])
+ind= group == levels(group)[8]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[8])
+ind= group == levels(group)[9]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[9])
+legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.7)
+
+dev.off()
+
+
 #################################################################
 ## PSets: ComBat (Empirical Bayes)
 #################################################################
@@ -220,9 +286,79 @@ ind= group == levels(group)[2]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[2])
 ind= group == levels(group)[3]
 points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
-legend('topleft',paste(levels(group)), pch="+",col=cols, cex=0.5)
+#legend('topleft',paste(levels(group)), pch="+",col=cols, cex=0.5)
 
 dev.off()
+
+## part II: distribution of sts subtypes
+## load cell line subtype annotation  
+df <- read.csv(file.path('C:/STS-PGx-Biomarker/data/results/data', 'STable_PGx Sarcoma_RNA - STable2.csv'))
+
+group <- dat_ann$subtype
+group <- sapply(1:length(group), function(k){
+     unique(df[df$OncoTree2_Psets == group[k], 'OncoTree2'])
+})
+
+group <- ifelse(group %in% c('Alveolar Soft Part Sarcoma',
+                             'Endometrioid Stromal Sarcoma',
+                             'Epithelioid Sarcoma',
+                             'Malignant Peripheral Nerve Sheath Tumor',
+                             'Spindle Cell Sarcoma', 'Sarcoma'), 'Other', group)
+
+custom_order <- c("Rhabdomyosarcoma", 
+                  "Synovial Sarcoma", 
+                  "Fibrosarcoma", 
+                  "Leiomyosarcoma", 
+                  "Liposarcoma", 
+                  "Chondrosarcoma",
+                  "Pleomorphic Sarcoma",
+                  "Uterine Corpus Sarcoma",
+                  "Other")
+
+group <- factor(group, levels = custom_order)
+
+# Define annotation
+cols <- c(
+  "#4477AA", # blue
+  "#EE6677", # coral
+  "#228833", # green
+  "#CCBB44", # mustard
+  "#66CCEE", # sky blue
+  "#AA3377", # purple
+  "#DDCC77", # tan
+  "#994455", # dark rose
+  "#D3D3D3"  # forest green
+)
+
+# Create binary heatmap
+pca_results <- prcomp(dat_mat, scale = TRUE)
+var_res <- pca_results$sdev^2 / sum(pca_results$sdev^2)
+
+pdf(file= file.path(dir_out, "pca_pset_subtype_after_correction.pdf"), width = 5, height = 5)
+
+plot(pca_results$x[,1],pca_results$x[,2],pch="+", xlab='PC1 (52%)',ylab='PC2 (19%)')
+ind= group == levels(group)[1]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[1])
+ind= group == levels(group)[2]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[2])
+ind= group == levels(group)[3]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[3])
+ind= group == levels(group)[4]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[4])
+ind= group == levels(group)[5]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[5])
+ind= group == levels(group)[6]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[6])
+ind= group == levels(group)[7]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[7])
+ind= group == levels(group)[8]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[8])
+ind= group == levels(group)[9]
+points(pca_results$x[ind,1],pca_results$x[ind,2], pch="+",col=cols[9])
+#legend('topright',paste(levels(group)), pch="+",col=cols, cex=0.7)
+
+dev.off()
+
 
 ########################################################################
 ## Merge the data as corrected
