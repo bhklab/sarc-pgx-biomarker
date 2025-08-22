@@ -31,8 +31,8 @@ library(ComplexHeatmap)
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_out <- 'data/results' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result'
+dir_in <- 'data/procdata'
+dir_out <- 'data/results' 
   
 ##################################################################
 # Load curated PGx RNA cell line 
@@ -62,7 +62,7 @@ annot <- do.call(rbind, annot)
 
 #---- Generate STable 1 & 2 only PGx RNA
 
-cellID <- unique(annot$sampleID)
+cellID <- unique(annot$sampleID) # --> 39 cells
 df.table <- lapply(1:length(cellID), function(j){
   
  sub.annot <- annot[annot$sampleID == cellID[j], ] 
@@ -253,8 +253,8 @@ dat.annot.ctrp <- data.frame(sampleID = paste(dat.drug.ctrp$sampleid, 'ctrp', se
                             Type = 'CTRP')
 
 
-dat.drug.nci <-  dat.drug$aac$NCI_Sarcoma$cell_ann_seq
-dat.drug.nci <- dat.drug.nci[dat.drug.nci$dimitrios.soft_vs_bone != 'Bone', ]
+dat.drug.nci <-  dat.drug$aac$NCI$cell_ann_seq
+dat.drug.nci <- dat.drug.nci[dat.drug.nci$dimitrios.soft_vs_bone %in% c("Soft", "Mixed"), ]
 dat.annot.nci <- data.frame(sampleID = paste(dat.drug.nci$sampleid, 'nci', sep='-'),
                             lineage = 'Soft Tissue',
                             subtype = dat.drug.nci$cellosaurus.cellosaurus.disease,

@@ -37,9 +37,9 @@ library(VennDiagram)
 ## Setup directory
 ##################################################################
 
-dir_data <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_aligned <- 'data/results/aligned' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
-dir_out <-  'data/results/drug' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/drug/'
+dir_data <- 'data/procdata' 
+dir_aligned <- 'data/results/aligned' 
+dir_out <-  'data/results/drug' 
 
 ################################################################################
 ## Load drug response data
@@ -175,8 +175,8 @@ ggplot(df_heat, aes(Var2, Var1, fill = value)) +
   theme_minimal() +
   theme(
     axis.title = element_blank(),            
-    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),     
-    axis.text.y = element_text(size = 6),     
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),     
+    axis.text.y = element_text(size = 8),     
     axis.ticks = element_blank(),             
     axis.line = element_blank(),             
     panel.grid = element_blank(),             
