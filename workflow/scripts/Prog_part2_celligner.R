@@ -35,9 +35,9 @@ source("scripts/Prog_celligner_function.R")
 ## Setup directory
 ##################################################################
 
-dir_in <- 'data/procdata'  # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_out <- 'data/results/aligned/'  # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
-dir_annot <-  'data/rawdata' # '/home/bioinf/bhklab/farnoosh/SARC/PGx_sts/Result/aligned/'
+dir_in <- 'data/procdata'  
+dir_out <- 'data/results/aligned/'  
+dir_annot <-  'data/rawdata' 
 
 #################################################################
 ## Run Celligner
