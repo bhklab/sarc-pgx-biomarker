@@ -17,17 +17,17 @@
 ## Load libraries and functions
 ########################################
 
+source("scripts/Prog_celligner_function.R")
 library(twosamples)
 library(ggplot2)
-source("scripts/Prog_celligner_function.R")
 
 ##################################################################
 ## Setup directory
 ##################################################################
 
-dir_data <- 'data/procdata' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/data'
-dir_aligned <- 'data/results/aligned' # '/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
-dir_out <- 'data/results/aligned'  #'/home/bioinf/bhklab/farnoosh/STS-PGx-Biomarker/result/aligned/'
+dir_data <- 'data/procdata' 
+dir_aligned <- 'data/results/aligned' 
+dir_out <- 'data/results/aligned'  
 
 ##########################################
 ## STS before alignment (AD: scaled data)
@@ -132,36 +132,34 @@ qsave(ad_ks_res, file = file.path(dir_out, "pgx_rna_after_alignment_ad_ks.qs"))
 ################################################################################
 
 ad_ks_res_raw <- qread(file.path(dir_out, "pgx_rna_before_alignment_ad_ks.qs"))
-ad_ks_res_raw <- data.frame(group = "uncorrected", ad_ks_res_raw)
 
-df_raw <- data.frame(method = "uncorrected",
-                     group = "uncorrected",
+df_raw <- data.frame(method = "unaligned",
+                     group = "unaligned",
                      perc = table(ad_ks_res_raw$ad_padj_BH < 0.05)["TRUE"]/nrow(ad_ks_res_raw) *100)
 
 ad_ks_res_corrected <- qread(file.path(dir_out, "pgx_rna_after_alignment_ad_ks.qs"))
-ad_ks_res_corrected <- data.frame(group = "corrected", ad_ks_res_corrected )
 
-df_celligner <- data.frame(method = "Celligner",
+df_celligner <- data.frame(method = "aligned - celligner",
                            group = "aligned",
                            perc = table(ad_ks_res_corrected$ad_padj_BH < 0.05)["TRUE"]/nrow(ad_ks_res_corrected) *100 )
 
 # merge results
 df <- rbind(df_raw, df_celligner)
 
-pdf(file= file.path(dir_out, "ad_test_celligner.pdf"), width = 5, height = 4)
+pdf(file= file.path(dir_out, "ad_test_celligner_preserved.pdf"), width = 2.5, height = 2)
 
-p <- ggplot(df, aes(x = group, y = perc, fill = group)) +
-  geom_bar(width = 0.3, stat = "identity", col = c("#b2afa8", "#f1c769")) +
-  scale_fill_manual(values = c("#f1c769", "#b2afa8")) +
+p <- ggplot(df, aes(x = group, y = (100 - perc), fill = group)) +
+  geom_bar(width = 0.3, stat = "identity", col = c("#a09f9bff", "#456b53ff")) +
+  scale_fill_manual(values = c("#456b53ff", "#a09f9bff")) +
   coord_flip()+
-  ylim(c(0, 100)) + 
-  ylab("percentage of non-preserved genes") +
+  ylim(c(0, 30)) + 
+  ylab("percentage of preserved genes") +
   xlab("") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x=element_text(size=10),
-        axis.title=element_text(size=10),
-        axis.text.y=element_text(size=10),
-        strip.text = element_text(size=10),
+  theme(axis.text.x=element_text(size=6),
+        axis.title=element_text(size=8),
+        axis.text.y=element_text(size=6),
+        strip.text = element_text(size=8),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(),
@@ -222,7 +220,7 @@ dat_raw <- lapply(1:length(tumor_names), function(k){
 })
 
 dat_raw <- do.call(rbind, dat_raw)
-dat_raw$group <- "uncorrected"
+dat_raw$group <- "unaligned"
 
 
 dat_aligned <- lapply(1:length(tumor_names), function(k){
@@ -239,20 +237,20 @@ dat <- rbind(dat_raw, dat_aligned)
 
 ggplot(dat, aes(x = r, y = group, fill = group)) +
   ggridges::geom_density_ridges(alpha=0.8)+ 
-  ggplot2::scale_fill_manual(values = c('uncorrected' = "#ccc3e1", 'aligned' = "#48376f")) + 
+  ggplot2::scale_fill_manual(values = c('unaligned' = "#a09f9bff", 'aligned' = "#456b53ff")) +  
   ggridges::theme_ridges() +
   ggplot2::theme_classic() +
   ggplot2::theme(legend.position = "none",
                  text=ggplot2::element_text(size=8),
-                 axis.text = ggplot2::element_text(size=10),
+                 axis.text = ggplot2::element_text(size=6),
                  axis.title = ggplot2::element_text(size=8)) +
-  ggplot2::xlab("correlation between cell lines and tumors") +
+  ggplot2::xlab("Cell line–tumor correlation") +
   ggplot2::ylab('') +
   ggplot2::xlim(0.4, 1)
 ggsave(file.path(dir_out, 'correlation_aligned_raw.pdf'), 
-       width = 3, height = 2.5)
+       width = 2.5, height = 2)
 
-wilcox.test(dat[dat$group == "uncorrected", "r"], 
+wilcox.test(dat[dat$group == "unaligned", "r"], 
             dat[dat$group == "aligned", "r"], 
             paired = TRUE, alternative = "two.sided")
 
