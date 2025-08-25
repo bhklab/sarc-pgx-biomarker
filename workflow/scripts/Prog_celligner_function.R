@@ -527,16 +527,18 @@ plot_uncorrected_data_type <- function(org_dat, before_plot, dir_output) {
     ggplot2::scale_fill_manual(values=c('GEO'= "#993404")) + 
     ggplot2::xlab('UMAP 1') + ggplot2::ylab("UMAP 2") +
     ggplot2::theme_classic() +
-    ggplot2::theme(legend.position='bottom',
-                   text = ggplot2::element_text(size=10),
-                   axis.text = ggplot2::element_text(size=10),
-                   axis.title = ggplot2::element_text(size=10),
+    ggplot2::theme(legend.position='right',
+                   legend.title = ggplot2::element_blank(),   # removes "type"
+                   text = ggplot2::element_text(size=8),
+                   axis.text = ggplot2::element_text(size=6),
+                   axis.title = ggplot2::element_text(size=8),
                    legend.margin =ggplot2::margin(0,0,0,0), 
-                   legend.box.margin=ggplot2::margin(-10,-30,-10,-30),
+                   #legend.box.margin=ggplot2::margin(-10,-30,-10,-30),
+                   legend.box.margin=ggplot2::margin(0,0,0,0),
                    axis.line = ggplot2::element_line(linewidth = .3))
   
   ggsave(file.path(dir_output, paste(before_plot, '.pdf', sep="")), 
-         width = 5, height = 4)
+         width = 4, height = 3)
   
 }   
 
@@ -608,17 +610,18 @@ plot_uncorrected_data_study <- function(org_dat, before_plot, dir_output) {
     )) +
     ggplot2::xlab('UMAP 1') + ggplot2::ylab("UMAP 2") +
     ggplot2::theme_classic() +
-    ggplot2::theme(legend.position='bottom',
-                   text = ggplot2::element_text(size=10),
-                   axis.text = ggplot2::element_text(size=10),
-                   axis.title = ggplot2::element_text(size=10),
+    ggplot2::theme(legend.position='right',
+                   legend.title = ggplot2::element_blank(),   # removes "type"
+                   text = ggplot2::element_text(size=8),
+                   axis.text = ggplot2::element_text(size=6),
+                   axis.title = ggplot2::element_text(size=8),
                    legend.margin =ggplot2::margin(0,0,0,0), 
-                   legend.box.margin=ggplot2::margin(-10,-30,-10,-30),
+                   legend.box.margin=ggplot2::margin(0,0,0,0),
                    axis.line = ggplot2::element_line(linewidth = .3))
   
   
   ggsave(file.path(dir_output, paste(before_plot, '.pdf', sep="")), 
-         width = 7, height = 4)
+         width = 4, height = 3)
 }   
 
 ################################################################################
@@ -655,17 +658,18 @@ Celligner_alignment_plot_type <- function(aligned_data, after_plot, dir_output) 
     ggplot2::scale_fill_manual(values=c('GEO'= "#993404")) +
     ggplot2::xlab('UMAP 1') + ggplot2::ylab("UMAP 2") +
     ggplot2::theme_classic() +
-    ggplot2::theme(legend.position='bottom',
-                   text = ggplot2::element_text(size=10),
-                   axis.text = ggplot2::element_text(size=10),
-                   axis.title = ggplot2::element_text(size=10),
+    ggplot2::theme(legend.position='right',
+                   legend.title = ggplot2::element_blank(),   # removes "type"
+                   text = ggplot2::element_text(size=8),
+                   axis.text = ggplot2::element_text(size=6),
+                   axis.title = ggplot2::element_text(size=8),
                    legend.margin =ggplot2::margin(0,0,0,0), 
-                   legend.box.margin=ggplot2::margin(-10,-30,-10,-30),
+                   legend.box.margin=ggplot2::margin(0,0,0,0),
                    axis.line = ggplot2::element_line(linewidth = .3))
   
   
   ggsave(file.path(dir_output, paste(after_plot, '.pdf', sep="")), 
-         width = 5, height = 4)
+         width = 4, height = 3)
   
 }
 
@@ -718,16 +722,17 @@ Celligner_alignment_plot_study <- function(aligned_data, org_dat, after_plot, di
     )) +
     ggplot2::xlab('UMAP 1') + ggplot2::ylab("UMAP 2") +
     ggplot2::theme_classic() +
-    ggplot2::theme(legend.position='bottom',
-                   text = ggplot2::element_text(size=10),
-                   axis.text = ggplot2::element_text(size=10),
-                   axis.title = ggplot2::element_text(size=10),
+    ggplot2::theme(legend.position='right',
+                   legend.title = ggplot2::element_blank(),   # removes "type"
+                   text = ggplot2::element_text(size=8),
+                   axis.text = ggplot2::element_text(size=6),
+                   axis.title = ggplot2::element_text(size=8),
                    legend.margin =ggplot2::margin(0,0,0,0), 
-                   legend.box.margin=ggplot2::margin(-10,-30,-10,-30),
+                   legend.box.margin=ggplot2::margin(0,0,0,0),
                    axis.line = ggplot2::element_line(linewidth = .3))
 
   ggsave(file.path(dir_output, paste(after_plot, '.pdf', sep="")), 
-         width = 7, height = 4)
+         width = 4, height = 3)
   
 }
 
@@ -798,7 +803,7 @@ cell_line_tumor_distance_distribution <- function(alignment, tumor_CL_cor, name_
   tumor_dist_spread <- ggplot2::ggplot(dplyr::filter(dist_df, tissue_types != 'all'),
                                        ggplot2::aes(x = dist_list, y = tissue_types, fill = tissue_types)) +
     ggridges::geom_density_ridges(alpha=0.8)+ 
-    ggplot2::scale_fill_manual(values = c('Soft Tissue' = "#6a51a3")) + 
+    ggplot2::scale_fill_manual(values = c('Soft Tissue' = "#456b53ff")) + 
     ggridges::theme_ridges() +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
@@ -856,7 +861,7 @@ plot_uncorrected_distribution_of_CL_tumor_distances <- function(uncorrected_tumo
   ggplot2::ggplot(dplyr::filter(dist_df, tissue_types != 'all'),
                   ggplot2::aes(x = dist_list, y = tissue_types, fill = tissue_types)) + 
     ggridges::geom_density_ridges(alpha=0.8) + 
-    ggplot2::scale_fill_manual(values = c('Soft Tissue' = "#6a51a3")) + 
+    ggplot2::scale_fill_manual(values = c('Soft Tissue' = "#a09f9bff")) + 
     ggridges::theme_ridges() + 
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
