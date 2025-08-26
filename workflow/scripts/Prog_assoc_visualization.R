@@ -22,6 +22,7 @@ library(ggplot2)
 library(VennDiagram)
 library(ComplexHeatmap)
 library(paletteer)
+library(dplyr)
 
 ##################################################################
 ## Setup directory
@@ -33,15 +34,173 @@ dir_out <- 'data/results/drug'
 ## Load data
 ##################################################################
 dat.meta <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
-#dat.ccle <- qread(file.path(dir, "gene_drug_assoc_sts_ccle_ctrp.qs"))
-#dat.gdsc <- qread(file.path(dir, "gene_drug_assoc_sts_gdsc.qs"))
-#dat.nci <- qread(file.path(dir, "gene_drug_assoc_sts_nci.qs"))
+dat.ccle <- qread(file.path(dir_in, "gene_drug_assoc_sts_ccle_ctrp.qs"))
+dat.gdsc <- qread(file.path(dir_in, "gene_drug_assoc_sts_gdsc.qs"))
+dat.nci <- qread(file.path(dir_in, "gene_drug_assoc_sts_nci.qs"))
 
-r.cutoff <- 0.50
+r.cutoff <- 0.30
+
 sig.meta <- dat.meta[dat.meta$padj < 0.05 & abs(dat.meta$r) >= r.cutoff, ]
-#sig.ccle <- dat.ccle[dat.ccle$padj < 0.05, ]
-#sig.gdsc <- dat.gdsc[dat.gdsc$padj < 0.05, ]
-#sig.nci <- dat.nci[dat.nci$padj < 0.05, ]
+sig.ccle <- dat.ccle[dat.ccle$padj < 0.05 & abs(dat.ccle$estimate) >= r.cutoff, ]
+sig.gdsc <- dat.gdsc[dat.gdsc$padj < 0.05 & abs(dat.gdsc$estimate) >= r.cutoff, ]
+sig.nci <- dat.nci[dat.nci$padj < 0.05 & abs(dat.nci$estimate) >= r.cutoff, ]
+
+# seelcted drugs
+selected_drugs <- read.csv(file = file.path(dir_in, 'selected_drugs.csv'))
+
+###################################################################
+## Bar plot of each studies vs meta
+###################################################################
+before_union <- TRUE
+
+if (before_union) {
+  # union of genes across studies per drug
+  before_tbl <- dplyr::bind_rows(
+      dplyr::select(sig.ccle, Ensembl_ID, drug),
+      dplyr::select(sig.gdsc, Ensembl_ID, drug),
+      dplyr::select(sig.nci,  Ensembl_ID, drug)
+    ) |>
+    dplyr::distinct(Ensembl_ID, drug) |>
+    dplyr::count(drug, name = "n_before")
+} else {
+  # sum of counts across studies per drug
+  cnt_ccle <- sig.ccle |> dplyr::count(drug, name = "n_ccle")
+  cnt_gdsc <- sig.gdsc |> dplyr::count(drug, name = "n_gdsc")
+  cnt_nci  <- sig.nci  |> dplyr::count(drug, name = "n_nci")
+
+  before_tbl <- cnt_ccle |>
+    dplyr::full_join(cnt_gdsc, by = "drug") |>
+    dplyr::full_join(cnt_nci,  by = "drug") |>
+    dplyr::mutate(
+      dplyr::across(dplyr::starts_with("n_"), ~ tidyr::replace_na(.x, 0L)),
+      n_before = n_ccle + n_gdsc + n_nci
+    ) |>
+    dplyr::select(drug, n_before)
+}
+
+after_tbl <- sig.meta |>
+  dplyr::distinct(Ensembl_ID, drug) |>
+  dplyr::count(drug, name = "n_after")
+
+# Align drugs and fill zeros where missing
+dat <- dplyr::full_join(before_tbl, after_tbl, by = "drug") |>
+  dplyr::mutate(
+    n_before = tidyr::replace_na(n_before, 0L),
+    n_after  = tidyr::replace_na(n_after,  0L)
+  )
+
+# Long format for plotting
+dat_long <- dat |>
+  tidyr::pivot_longer(
+    cols = c(n_before, n_after),
+    names_to = "Stage",
+    values_to = "n_sig"
+  ) |>
+  dplyr::mutate(
+    Stage = dplyr::recode(Stage,
+                          n_before = "Before integration",
+                          n_after  = "After integration")
+  )
+
+# Order drugs by "After" (then total) for nicer plotting
+drug_order <- dat |>
+  dplyr::mutate(total = n_before + n_after) |>
+  dplyr::arrange(dplyr::desc(n_after), dplyr::desc(total)) |>
+  dplyr::pull(drug)
+
+dat_long <- dat_long |>
+  dplyr::mutate(
+    drug  = factor(drug, levels = drug_order),
+    Stage = factor(Stage, levels = c("Before integration", "After integration"))
+  )
+
+dat_long <- dat_long[dat_long$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
+####################### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ############################
+
+pdf(file= file.path(dir_out, "bar_sig_assoc_meta_studies_clinicalapproved.pdf"),
+     width = 8, height = 5)
+
+p <- ggplot2::ggplot(dat_long,
+              ggplot2::aes(x = drug, y = n_sig, fill = Stage)) +
+  ggplot2::geom_bar(stat = "identity", width = 0.5) +
+  ggplot2::scale_fill_manual(
+    values = c("After integration" = "#d5ced7ff",   
+               "Before integration"  = "#401840ff") )  +
+  ggplot2::labs(
+    x = " ",
+    y = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)",
+    title = " "
+  ) +
+  ggplot2::theme(axis.text.x=element_text(size=8, angle = 45, hjust = 1),
+        axis.title.x=element_text(size=10),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=8),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        plot.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        legend.position=c(0.5,0.5),
+        legend.text = element_text(size = 7.5, face="bold"),
+        legend.title = element_blank())
+
+p
+
+dev.off()
+
+###################################################################
+## violin plots studies vs meta
+###################################################################
+
+ccle_long <- dat.ccle %>%
+  dplyr::transmute(gene_name, drug, r = estimate, padj, study = "CCLE/CTRP")
+gdsc_long <- dat.gdsc %>%
+  dplyr::transmute(gene_name, drug, r = estimate, padj, study = "GDSC")
+nci_long  <- dat.nci %>%
+  dplyr::transmute(gene_name, drug, r = estimate, padj, study = "NCI-Sarcoma")
+meta_long <- dat.meta %>%
+  dplyr::transmute(gene_name, drug, r = r, padj, study = "Meta")
+
+eff_long <- dplyr::bind_rows(ccle_long, gdsc_long, nci_long, meta_long)
+eff_long <- eff_long [eff_long $padj < 0.05 & abs(eff_long$r) >= 0.30, ]
+
+eff_long <- eff_long %>%
+  dplyr::mutate(study = factor(study, levels = c("CCLE/CTRP","GDSC","NCI-Sarcoma","Meta")))
+
+pdf(file= file.path(dir_out, "violin_sig_assoc_meta_estimates.pdf"),
+     width = 5, height = 4)
+
+p <- ggplot2::ggplot(eff_long, ggplot2::aes(x = study, y = r, fill = study)) +
+  ggplot2::geom_violin(trim = TRUE, alpha = 0.85) +
+  ggplot2::geom_boxplot(width = 0.05, outlier.shape = NA, color = "black") +
+    ggplot2::scale_fill_manual(
+    values=c('CCLE/CTRP'="#1b7837", 
+             'GDSC' = "#542788", 
+            'NCI-Sarcoma' = "#bf812d",
+            "Meta" = "#d5ced7ff")
+ )  +
+  ggplot2::coord_cartesian(ylim = c(-1, 1)) +        # for correlations
+  ggplot2::labs(
+    x = NULL,
+    y = "gene–drug correlation (FDR < 0.05, |r| ≥ 0.30)",
+    title = ""
+  ) +
+    ggplot2::theme(axis.text.x=element_text(size=8),
+        axis.title.x=element_text(size=10),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=8),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        plot.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        legend.position='none',
+        legend.text = element_text(size = 7.5, face="bold"),
+        legend.title = element_blank())
+
+p
+
+dev.off()
 
 ###################################################################
 ## Bar plot of late integration
@@ -61,22 +220,23 @@ df <- df[order(df$number_sig, decreasing = TRUE), ]
 df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
 
 df[df$drug == "Unii-40E3azg1MX", "drug"] <- "BMS-536924" 
+df <- df[df$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
 
-pdf(file= file.path(dir_out, "bar_sig_assoc_meta_50PercCutoffCor.pdf"),
-     width = 6, height = 9)
+pdf(file= file.path(dir_out, "bar_sig_assoc_meta_30PercCutoffCor_clinicalapproved.pdf"),
+     width = 6, height = 6)
 
 p <- ggplot(df, aes(x = reorder(drug, -number_sig), y = number_sig)) +
   geom_bar(width = 0.4, stat = "identity") +
   scale_fill_manual(values = c("#96A5A5FF")) +
   coord_flip()+
-  ylab(paste("drug response–associated genes (FDR < 0.05, |r| ≥ 0.50)")) +
+  ylab(paste("drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)")) +
   xlab("") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x=element_text(size=10,  face="bold"),
-        axis.title.x=element_text(size=12,face="bold"),
-        axis.title.y=element_text(size=10,face="bold"),
-        axis.text.y=element_text(size=9, face = "bold"),
-        strip.text = element_text(size=10, face="bold"),
+  theme(axis.text.x=element_text(size=6,  face="bold"),
+        axis.title.x=element_text(size=8,face="bold"),
+        axis.title.y=element_text(size=8,face="bold"),
+        axis.text.y=element_text(size=6, face = "bold"),
+        strip.text = element_text(size=8, face="bold"),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(),
@@ -106,8 +266,9 @@ df <- df[df$number_sig != 0, ]
 df <- df[order(df$number_sig, decreasing = TRUE), ]
 df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
 df[df$drug == "Unii-40E3azg1MX", "drug"] <- "BMS-536924" 
+df <- df[df$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
 
-df <- df[1:20, ] # select top 20 drugs
+df <- df[1:10, ] # select top 20 drugs
 
 sig_gene_drug <- lapply(1:nrow(df), function(k){
   
@@ -119,11 +280,11 @@ sig_gene_drug <- lapply(1:nrow(df), function(k){
 
 names(sig_gene_drug) <- df$drug
 
-pdf(file= file.path(dir_out, "upset_sig_assoc_meta_top20_drugs_50PercCutoffCor.pdf"),
-     width = 12, height = 9)
+pdf(file= file.path(dir_out, "upset_sig_assoc_meta_top10_drugs_30PercCutoffCor_clinicalapproved.pdf"),
+     width = 12, height = 7)
 
 upset(fromList(sig_gene_drug), nsets = 100 ,  order.by = c("freq", "degree"), decreasing = c(TRUE,FALSE),
-      mainbar.y.label = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.50)", text.scale =1.2, 
+      mainbar.y.label = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)", text.scale =1.2, 
       matrix.color = "#023743FF", main.bar.color = "#72874EFF", sets.bar.color = "#023743FF")
 
 dev.off()
@@ -150,12 +311,12 @@ for(i in 1:length(drug)){
   res <- dat.meta[dat.meta$drug == drug[i], ]
   
   res$diffexpressed <- "NO"
-  res$diffexpressed[res$r > r.cutoff & res$padj < 0.05] <- "FDR < 0.05, r > 0.50"
-  res$diffexpressed[res$r < (-r.cutoff) & res$padj < 0.05] <- "FDR < 0.05, r < -0.50"  
+  res$diffexpressed[res$r > r.cutoff & res$padj < 0.05] <- "FDR < 0.05, r > 0.30"
+  res$diffexpressed[res$r < (-r.cutoff) & res$padj < 0.05] <- "FDR < 0.05, r < -0.30"  
   
   mycolors <- c( "#EF8A62","#67A9CF", "#999999" )
-  names(mycolors) <- c("FDR < 0.05, r > 0.50", 
-                       "FDR < 0.05, r < -0.50", 
+  names(mycolors) <- c("FDR < 0.05, r > 0.30", 
+                       "FDR < 0.05, r < -0.30", 
                        "NO")  
  
   res$delabel <- NA
@@ -170,7 +331,7 @@ for(i in 1:length(drug)){
     res$delabel[k] <- res[k, ]$gene_name
   }
 
- pdf(file=paste(paste(file.path(dir_out, "volcano/cutoff_0.50"), 
+ pdf(file=paste(paste(file.path(dir_out, "volcano/cutoff_0.30"), 
           paste("volcano", drug[i], sep="_"), sep="/"), "pdf", sep="."), 
      width = 6, height = 6)
   
@@ -274,7 +435,7 @@ ha <- HeatmapAnnotation(
 )
 
 # Combine the heatmap and the annotation
-pdf(file=file.path(dir_out, "heatmap/cutoff_0.50" , 
+pdf(file=file.path(dir_out, "heatmap/cutoff_0.30" , 
          paste('heatmap', paste(drugs[k], '.pdf', sep=""), sep="_")),
           width =6, height = 8)
 
@@ -328,7 +489,7 @@ for(k in 1:length(drugs)){
   
 df <- pset_aac[rownames(pset_aac) == drugs[k], ]
 group <- names(df)
-group[grep("-ccle", names(df))] <- "CCLE"
+group[grep("-ccle", names(df))] <- "CCLE/CTRP"
 group[grep("-gdsc", names(df))] <- "GDSC"
 group[grep("-nci", names(df))] <- "NCI"
 
