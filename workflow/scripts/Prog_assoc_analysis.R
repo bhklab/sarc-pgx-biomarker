@@ -45,7 +45,7 @@ library(metafor)
 dir_data <- 'data/procdata'  
 dir_drug <- 'data/results/drug' 
 dir_aligned <- 'data/results/aligned' 
-dir_out <- 'data/results/drug' 
+dir_out <- 'data/results/drug'
 
 #######################################################
 ## Load gene-drug data (after alignment)

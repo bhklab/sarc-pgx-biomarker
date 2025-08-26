@@ -1,4 +1,4 @@
-# -----------------------------------------------------------
+# --------------------------------------------------------------------------------------
 # Drug Response Integration & Visualization for STS Cell Lines
 #
 # This script processes and visualizes drug response data 
@@ -21,7 +21,8 @@
 #
 #   Assumes input data (qs files) has been preprocessed
 #   and available under specified `data/` directories.
-# -----------------------------------------------------------
+#   Use 'https://www.accessdata.fda.gov/scripts/cder/ob/index.cfm' to check FDA status. 
+# --------------------------------------------------------------------------------------
 ########################################
 ## Load libraries
 ########################################
@@ -191,6 +192,8 @@ dev.off()
 ####################################################################
 int <- intersect(intersect(rownames(ctrp_aac), rownames(gdsc_aac)),
                  rownames(nci_aac)) # 69 drugs
+
+#write.csv(int, file = file.path(dir_out, 'selected_drugs.csv'), row.names = FALSE)
 
 ctrp_aac <- ctrp_aac[int, ]
 colnames(ctrp_aac) <- paste(colnames(ctrp_aac), "ccle", sep="-")
