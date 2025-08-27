@@ -103,6 +103,7 @@ gene_drug_assoc <- do.call(rbind, gene_drug_res)
 rownames(gene_drug_assoc) <- NULL
 
 qsave(gene_drug_assoc, file= file.path(dir_out, "gene_drug_assoc_sts_ccle_ctrp.qs"))
+write.csv(gene_drug_assoc, file = file.path(dir_out, "gene_drug_assoc_sts_ccle_ctrp.csv"), row.names = FALSE)
 
 sig_res <- gene_drug_assoc[gene_drug_assoc$padj < 0.15, ]
 write.csv(sig_res, file=file.path(dir_out, "gene_drug_assoc_sts_ccle_ctrp_sigFDR.csv"))
@@ -158,6 +159,7 @@ gene_drug_assoc <- do.call(rbind, gene_drug_res)
 rownames(gene_drug_assoc) <- NULL
 
 qsave(gene_drug_assoc, file=file.path(dir_out, "gene_drug_assoc_sts_gdsc.qs"))
+write.csv(gene_drug_assoc, file = file.path(dir_out, "gene_drug_assoc_sts_gdsc.csv"), row.names = FALSE)
 
 sig_res <- gene_drug_assoc[gene_drug_assoc$padj < 0.15, ]
 write.csv(sig_res, file=file.path(dir_out, "gene_drug_assoc_sts_gdsc_sigFDR.csv"))
@@ -214,6 +216,7 @@ gene_drug_assoc <- do.call(rbind, gene_drug_res)
 rownames(gene_drug_assoc) <- NULL
 
 qsave(gene_drug_assoc, file=file.path(dir_out, "gene_drug_assoc_sts_nci.qs"))
+write.csv(gene_drug_assoc, file = file.path(dir_out, "gene_drug_assoc_sts_nci.csv"), row.names = FALSE)
 
 sig_res <- gene_drug_assoc[gene_drug_assoc$padj < 0.15, ]
 write.csv(sig_res, file=file.path(dir_out, "gene_drug_assoc_sts_nci_sigFDR.csv"))
@@ -221,7 +224,6 @@ write.csv(sig_res, file=file.path(dir_out, "gene_drug_assoc_sts_nci_sigFDR.csv")
 ####################################################################
 ## Integration analysis
 ####################################################################
-
 res.ccle <- qread(file=file.path(dir_out, "gene_drug_assoc_sts_ccle_ctrp.qs"))   
 res.gdsc <- qread(file=file.path(dir_out, "gene_drug_assoc_sts_gdsc.qs"))  
 res.nci <- qread(file=file.path(dir_out, "gene_drug_assoc_sts_nci.qs"))  
