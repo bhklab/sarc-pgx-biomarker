@@ -414,11 +414,11 @@ expr <- expr[, int]
 group <- colnames(expr)
 group[grep("-ccle", colnames(expr))] <- "CCLE"
 group[grep("-gdsc", colnames(expr))] <- "GDSC"
-group[grep("-nci", colnames(expr))] <- "NCI"
+group[grep("-nci", colnames(expr))] <- "NCI-Sarcoma"
 
 col = list( "PSets" = c( "CCLE" = "#1b7837",
                          "GDSC" = "#542788",
-                         "NCI" = "#bf812d"),
+                         "NCI-Sarcoma" = "#bf812d"),
             "AAC" = colorRamp2(c(0, median(pset_aac), max(pset_aac)), 
                                c("#354823FF", "white",  "#D4613EFF" )) ) 
 
