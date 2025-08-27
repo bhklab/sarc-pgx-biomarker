@@ -261,14 +261,13 @@ colnames(res) <- drug
 cor_res <- cor(res)
 
 pdf(file=file.path(dir_out, paste("cor_pcl_30PercCutoffCor", ".pdf", sep="")),
-     width = 12, height = 12)
+     width = 10, height = 10)
 
 p <- corrplot(cor_res, type = "upper", order = "hclust", 
               tl.col = "black", tl.srt = 90, tl.cex = 0.8)
 p
 
 dev.off()
-
 
 #####################################################################################################################
 ################################################ clincial drugs #####################################################
