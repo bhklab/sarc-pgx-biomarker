@@ -115,23 +115,20 @@ dat_long <- dat_long |>
   )
 
 dat_long <- dat_long[dat_long$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
-####################### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ############################
 
 pdf(file= file.path(dir_out, "bar_sig_assoc_meta_studies_clinicalapproved.pdf"),
      width = 8, height = 5)
 
-p <- ggplot2::ggplot(dat_long,
-              ggplot2::aes(x = drug, y = n_sig, fill = Stage)) +
-  ggplot2::geom_bar(stat = "identity", width = 0.5) +
-  ggplot2::scale_fill_manual(
-    values = c("After integration" = "#d5ced7ff",   
-               "Before integration"  = "#401840ff") )  +
-  ggplot2::labs(
-    x = " ",
-    y = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)",
-    title = " "
+p <- ggplot(dat_long, aes(x = drug, y = n_sig, fill = Stage)) +
+     geom_bar(stat = "identity", width = 0.5) +
+     coord_flip() + 
+     scale_fill_manual(values = c("After integration" = "#d5ced7ff",   
+                                  "Before integration"  = "#401840ff") )  +
+    labs(x = " ",
+         y = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)",
+         title = " "
   ) +
-  ggplot2::theme(axis.text.x=element_text(size=8, angle = 45, hjust = 1),
+  theme(axis.text.x=element_text(size=8),
         axis.title.x=element_text(size=10),
         axis.title.y=element_text(size=10),
         axis.text.y=element_text(size=8),
