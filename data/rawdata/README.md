@@ -96,7 +96,7 @@ See the **Materials and Methods** section of the manuscript for full criteria.
 
 - This directory is **read-only** during pipeline execution
 - All downstream outputs are written to `data/procdata/`
-- Data versioning and access dates are documented in [`docs/data_sources.md`](../docs/data_sources.md)
+- Data versioning and access dates are documented in [`docs/data_sources.md`](/docs/data_sources.md)
 
 ---
 
