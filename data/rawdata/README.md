@@ -61,7 +61,7 @@ Drug response data were obtained from:
 
 ---
 
-## Gene Signature Sets: GSEA / ORA
+## Gene Signature Sets
 
 Curated gene sets used for enrichment analysis:
 
@@ -70,12 +70,12 @@ Curated gene sets used for enrichment analysis:
 
 ---
 
-## Validation Datasets — TCGA-SARC & NCT-MASTER
+## Validation Datasets: TCGA-SARC & NCT-MASTER
 
 Used for external validation of candidate biomarkers:
 
-- **TCGA-SARC (RNA-seq)** – The Cancer Genome Atlas Sarcoma cohort
-- **NCT-MASTER (RNA-seq)** – Precision oncology cohort from the DKFZ/NCT/DKTK (ClinicalTrials.gov: NCT05852522)
+- **TCGA-SARC (RNA-seq)** – [The Cancer Genome Atlas Sarcoma cohort](https://portal.gdc.cancer.gov/projects/TCGA-SARC)
+- **NCT-MASTER (RNA-seq)** – Precision oncology cohort from the DKFZ/NCT/DKTK [ClinicalTrials.gov: NCT05852522](https://clinicaltrials.gov/study/NCT05852522?locStr=Heidelberg,%20Germany&country=Germany&state=Baden-W%C3%BCrttemberg&city=Heidelberg&cond=Cancer&aggFilters=status:rec&rank=2)
 
 ---
 
