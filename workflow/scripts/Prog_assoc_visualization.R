@@ -51,19 +51,19 @@ selected_drugs <- read.csv(file = file.path(dir_in, 'selected_drugs.csv'))
 ###################################################################
 ## Bar plot of each studies vs meta
 ###################################################################
-before_union <- TRUE
+before_union <- TRUE 
 
 if (before_union) {
-  # union of genes across studies per drug
+  # Union of genes across studies per drug
   before_tbl <- dplyr::bind_rows(
       dplyr::select(sig.ccle, Ensembl_ID, drug),
       dplyr::select(sig.gdsc, Ensembl_ID, drug),
       dplyr::select(sig.nci,  Ensembl_ID, drug)
     ) |>
     dplyr::distinct(Ensembl_ID, drug) |>
-    dplyr::count(drug, name = "n_before")
+    dplyr::count(drug, name = "n_sig_before")
 } else {
-  # sum of counts across studies per drug
+  # Sum of counts across studies per drug
   cnt_ccle <- sig.ccle |> dplyr::count(drug, name = "n_ccle")
   cnt_gdsc <- sig.gdsc |> dplyr::count(drug, name = "n_gdsc")
   cnt_nci  <- sig.nci  |> dplyr::count(drug, name = "n_nci")
@@ -73,41 +73,56 @@ if (before_union) {
     dplyr::full_join(cnt_nci,  by = "drug") |>
     dplyr::mutate(
       dplyr::across(dplyr::starts_with("n_"), ~ tidyr::replace_na(.x, 0L)),
-      n_before = n_ccle + n_gdsc + n_nci
+      n_sig_before = n_ccle + n_gdsc + n_nci
     ) |>
-    dplyr::select(drug, n_before)
+    dplyr::select(drug, n_sig_before)
 }
 
+# After integration
 after_tbl <- sig.meta |>
   dplyr::distinct(Ensembl_ID, drug) |>
-  dplyr::count(drug, name = "n_after")
+  dplyr::count(drug, name = "n_sig_after")
 
-# Align drugs and fill zeros where missing
+# Determine total number of unique genes across all sources
+total_genes <- dplyr::bind_rows(
+    dplyr::select(sig.ccle, Ensembl_ID),
+    dplyr::select(sig.gdsc, Ensembl_ID),
+    dplyr::select(sig.nci,  Ensembl_ID),
+    dplyr::select(sig.meta, Ensembl_ID)
+  ) |>
+  dplyr::distinct(Ensembl_ID) |>
+  nrow()
+
+# Merge and calculate per-drug percentages
 dat <- dplyr::full_join(before_tbl, after_tbl, by = "drug") |>
   dplyr::mutate(
-    n_before = tidyr::replace_na(n_before, 0L),
-    n_after  = tidyr::replace_na(n_after,  0L)
+    n_sig_before = tidyr::replace_na(n_sig_before, 0L),
+    n_sig_after  = tidyr::replace_na(n_sig_after,  0L),
+    perc_sig_before = 100 * n_sig_before / total_genes,
+    perc_sig_after  = 100 * n_sig_after  / total_genes
   )
 
-# Long format for plotting
+# Pivot to long format for plotting
 dat_long <- dat |>
   tidyr::pivot_longer(
-    cols = c(n_before, n_after),
-    names_to = "Stage",
-    values_to = "n_sig"
+    cols = c(n_sig_before, n_sig_after, perc_sig_before, perc_sig_after),
+    names_to = c(".value", "Stage"),
+    names_pattern = "(n_sig|perc_sig)_(before|after)"
   ) |>
   dplyr::mutate(
-    Stage = dplyr::recode(Stage,
-                          n_before = "Before integration",
-                          n_after  = "After integration")
+    Stage = dplyr::recode(
+      Stage,
+      before = "Before integration",
+      after  = "After integration"
+    )
   )
 
-# Order drugs by "After" (then total) for nicer plotting
+# Order drugs by n_sig in "After" stage
 drug_order <- dat |>
-  dplyr::mutate(total = n_before + n_after) |>
-  dplyr::arrange(dplyr::desc(n_after), dplyr::desc(total)) |>
+  dplyr::arrange(dplyr::desc(n_sig_after)) |>
   dplyr::pull(drug)
 
+# Final formatting for plotting or reporting
 dat_long <- dat_long |>
   dplyr::mutate(
     drug  = factor(drug, levels = drug_order),
