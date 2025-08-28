@@ -122,26 +122,34 @@ moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("
 moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("RTK signaling///IGF1R signaling"), 
                                   "IGF1R signaling", moa_dat$TARGET_PATHWAY_updated)
 
-
 target_pathway <- unique(moa_dat$TARGET_PATHWAY_updated)
+
 freq_target_pathway <- lapply(1:length(target_pathway), function(k){
   
  data.frame(target_pathway = target_pathway[k], 
-            freq = nrow( moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], ] ))
+            freq = nrow( moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], ] ),
+            drug = paste(moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], 'treatmentid'], collapse = ", ")
+            )
   
 })
 
 freq_target_pathway  <- do.call(rbind, freq_target_pathway)
 freq_target_pathway <- freq_target_pathway[order(freq_target_pathway$freq, decreasing = TRUE), ]
-#freq_target_pathway <- freq_target_pathway[freq_target_pathway$target_pathway != "Other", ]
+freq_target_pathway$target_pathway <- ifelse(freq_target_pathway$freq == 1, 'Other', freq_target_pathway$target_pathway)
+freq_target_pathway <- freq_target_pathway %>%
+  group_by(target_pathway) %>%
+  summarise(
+    freq = sum(freq),
+    drug = paste(unique(drug), collapse = ", ")
+  )
 
 freq_target_pathway_included <- freq_target_pathway[freq_target_pathway$freq >= 2, ]
 target_pathway_included <- freq_target_pathway_included$target_pathway
 
 dat_drug_class <- lapply(1:length(target_pathway_included), function(k){
-  
-  moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway_included[k], "treatmentid"]
-  
+   
+   unlist(strsplit(freq_target_pathway$drug[k], ",\\s*"))
+
 })
 
 names(dat_drug_class) <- target_pathway_included
@@ -241,34 +249,6 @@ for(k in 1:length(dat_drug_class)){
   
 }
 
-##########################################################
-## Drugs with significant meta-association results 
-##########################################################
-# Consider cut-offs for correlation (no cut-off, 30%)
-dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
-sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
-
-drug <- unique(sig$drug)
-res <- lapply(1:length(drug), function(k){
-  
-  df <- dat[dat$drug == drug[k], "r"]
-  df
-  
-})
-
-res <- do.call(cbind, res)
-colnames(res) <- drug
-cor_res <- cor(res)
-
-pdf(file=file.path(dir_out, paste("cor_pcl_30PercCutoffCor", ".pdf", sep="")),
-     width = 10, height = 10)
-
-p <- corrplot(cor_res, type = "upper", order = "hclust", 
-              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
-p
-
-dev.off()
-
 #####################################################################################################################
 ################################################ clincial drugs #####################################################
 #####################################################################################################################
@@ -320,21 +300,28 @@ target_pathway <- unique(moa_dat$TARGET_PATHWAY_updated)
 freq_target_pathway <- lapply(1:length(target_pathway), function(k){
   
  data.frame(target_pathway = target_pathway[k], 
-            freq = nrow( moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], ] ))
+            freq = nrow( moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], ] ),
+            drug = paste(moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway[k], 'treatmentid'], collapse = ", "))
   
 })
 
 freq_target_pathway  <- do.call(rbind, freq_target_pathway)
 freq_target_pathway <- freq_target_pathway[order(freq_target_pathway$freq, decreasing = TRUE), ]
-#freq_target_pathway <- freq_target_pathway[freq_target_pathway$target_pathway != "Other", ]
+freq_target_pathway$target_pathway <- ifelse(freq_target_pathway$freq == 1, 'Other', freq_target_pathway$target_pathway)
+freq_target_pathway <- freq_target_pathway %>%
+  group_by(target_pathway) %>%
+  summarise(
+    freq = sum(freq),
+    drug = paste(unique(drug), collapse = ", ")
+  )
 
 freq_target_pathway_included <- freq_target_pathway[freq_target_pathway$freq >= 2, ]
 target_pathway_included <- freq_target_pathway_included$target_pathway
 
 dat_drug_class <- lapply(1:length(target_pathway_included), function(k){
-  
-  moa_dat[moa_dat$TARGET_PATHWAY_updated == target_pathway_included[k], "treatmentid"]
-  
+   
+   unlist(strsplit(freq_target_pathway$drug[k], ",\\s*"))
+
 })
 
 names(dat_drug_class) <- target_pathway_included
@@ -433,33 +420,4 @@ for(k in 1:length(dat_drug_class)){
   dev.off()
   
 }
-
-##########################################################
-## Drugs with significant meta-association results 
-##########################################################
-# Consider cut-offs for correlation (no cut-off, 30%)
-dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
-sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
-
-drug <- intersect(unique(sig$drug), clin_selected_drugs)
-
-res <- lapply(1:length(drug), function(k){
-  
-  df <- dat[dat$drug == drug[k], "r"]
-  df
-  
-})
-
-res <- do.call(cbind, res)
-colnames(res) <- drug
-cor_res <- cor(res)
-
-pdf(file=file.path(dir_out, paste("cor_pcl_30PercCutoffCor_clinical", ".pdf", sep="")),
-     width = 5, height = 5)
-
-p <- corrplot(cor_res, type = "upper", order = "hclust", 
-              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
-p
-
-dev.off()
 
