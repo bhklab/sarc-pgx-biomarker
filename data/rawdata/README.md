@@ -28,7 +28,7 @@ Transcriptomic datasets from soft-tissue sarcoma patients were retrieved from th
 
 ---
 
-## Preclinical Transcriptomic Data — CCLE, GDSC, NCI-Sarcoma
+## Preclinical Transcriptomic Data 
 
 Microarray data from large-scale pharmacogenomic efforts:
 
