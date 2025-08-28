@@ -46,7 +46,7 @@ Microarray data from large-scale pharmacogenomic efforts:
 
 ---
 
-### Drug Sensitivity Profiles — CCLE, GDSC, NCI-Sarcoma, CTRP
+### Drug Sensitivity Profiles 
 
 Drug response data were obtained from:
 
