@@ -182,9 +182,17 @@ cor_res <- lapply(1:length(dat_drug_class), function(k){
 cor_res <- do.call(rbind, cor_res)
 write.csv(cor_res, file=file.path(dir_out, "cor_pcl.csv"), row.names = FALSE)  
 
+## statistical test 
+fit <- kruskal.test(cor_res$cor ~ cor_res$target_pathway)
+# Kruskal-Wallis chi-squared = 63.698, df = 11, p-value = 1.892e-09
+
 ################################################################################
 ## Boxplot for all the pharmacological classes
 ################################################################################
+p_value <- fit$p.value
+p_label <- paste0("p = ", signif(p_value, 3))
+
+top_pathway <- levels(reorder(cor_res$target_pathway, -cor_res$cor))[12]
 
 pdf(file= file.path(dir_out, "boxplot_pcl.pdf"), 
      width = 4, height = 4)
@@ -195,6 +203,7 @@ p <- ggplot(cor_res, aes(x=reorder(target_pathway, -cor), y=cor)) +
   ylim(c(-0.5, 1)) +
   xlab("") +
   ylab("predictive correlation") +
+  annotate("text", x = top_pathway, y = 0.95, label = p_label, hjust = 1, vjust = 1, size = 3.5) + 
   theme(axis.text.x=element_text(size=8),
         axis.title=element_text(size=9),
         axis.text.y=element_text(size=8),
@@ -211,10 +220,6 @@ p <- ggplot(cor_res, aes(x=reorder(target_pathway, -cor), y=cor)) +
 p
 
 dev.off()
-
-## statistical test 
-kruskal.test(cor_res$cor ~ cor_res$target_pathway)
-# Kruskal-Wallis chi-squared = 63.698, df = 11, p-value = 1.892e-09
 
 ##########################################################
 ## All drugs 
@@ -279,6 +284,33 @@ for(k in 1:length(dat_drug_class)){
   dev.off()
   
 }
+
+##########################################################
+## All drugs 
+##########################################################
+dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
+sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
+
+drug <- unique(sig$drug)
+res <- lapply(1:length(drug), function(k){
+  
+  df <- dat[dat$drug == drug[k], "r"]
+  df
+  
+})
+
+res <- do.call(cbind, res)
+colnames(res) <- drug
+cor_res <- cor(res)
+
+pdf(file=file.path(dir_out, paste("cor_pcl", ".pdf", sep="")),
+     width = 10, height = 10)
+
+p <- corrplot(cor_res, type = "upper", order = "hclust", 
+              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
+p
+
+dev.off()
 
 #####################################################################################################################
 ################################################ clincial drugs #####################################################
@@ -386,12 +418,16 @@ cor_res <- do.call(rbind, cor_res)
 write.csv(cor_res, file=file.path(dir_out, "cor_pcl_clinical.csv"), row.names = FALSE)  
 
 ## statistical test 
-kruskal.test(cor_res$cor ~ cor_res$target_pathway)
+fit <- kruskal.test(cor_res$cor ~ cor_res$target_pathway)
 # Kruskal-Wallis chi-squared = 8.5116, df = 3, p-value = 0.03654
 
 ################################################################################
 ## Boxplot for all the pharmacological classes
 ################################################################################
+p_value <- fit$p.value
+p_label <- paste0("p = ", signif(p_value, 1))
+
+top_pathway <- levels(reorder(cor_res$target_pathway, -cor_res$cor))[4]
 
 pdf(file= file.path(dir_out, "boxplot_pcl_clinical.pdf"), 
      width = 3, height = 3)
@@ -402,6 +438,7 @@ p <- ggplot(cor_res, aes(x=reorder(target_pathway, -cor), y=cor)) +
   ylim(c(-0.5, 1)) +
   xlab("") +
   ylab("predictive correlation") +
+  annotate("text", x = top_pathway, y = 0.98, label = p_label, hjust = 1, vjust = 1, size = 3.5) + 
   theme(axis.text.x=element_text(size=8),
         axis.title=element_text(size=9),
         axis.text.y=element_text(size=8),
@@ -475,7 +512,7 @@ colnames(res) <- drug
 cor_res <- cor(res)
 
 pdf(file=file.path(dir_out, paste("cor_pcl_clinical", ".pdf", sep="")),
-     width = 10, height = 10)
+     width = 6, height = 6)
 
 p <- corrplot(cor_res, type = "upper", order = "hclust", 
               tl.col = "black", tl.srt = 90, tl.cex = 0.8)
