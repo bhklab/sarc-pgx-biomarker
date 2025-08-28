@@ -212,6 +212,10 @@ p
 
 dev.off()
 
+## statistical test 
+kruskal.test(cor_res$cor ~ cor_res$target_pathway)
+# Kruskal-Wallis chi-squared = 63.698, df = 11, p-value = 1.892e-09
+
 ##########################################################
 ## All drugs 
 ##########################################################
@@ -355,7 +359,7 @@ names(dat_drug_class) <- target_pathway_included
 save(dat_drug_class, file = file.path(dir_out, 'moa_info_clinical.rda'))
 
 ################################################################################
-## Pearson correlation as similarity metric (69 drugs) 
+## Pearson correlation as similarity metric (clinical drugs) 
 ################################################################################
 
 load(file.path(dir_out, 'moa_info_clinical.rda'))
@@ -380,6 +384,10 @@ cor_res <- lapply(1:length(dat_drug_class), function(k){
 
 cor_res <- do.call(rbind, cor_res)
 write.csv(cor_res, file=file.path(dir_out, "cor_pcl_clinical.csv"), row.names = FALSE)  
+
+## statistical test 
+kruskal.test(cor_res$cor ~ cor_res$target_pathway)
+# Kruskal-Wallis chi-squared = 8.5116, df = 3, p-value = 0.03654
 
 ################################################################################
 ## Boxplot for all the pharmacological classes
