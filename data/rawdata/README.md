@@ -14,7 +14,7 @@ To reproduce results, download the source datasets as outlined below or use avai
 
 ---
 
-### Clinical Transcriptomic Data (GEO)
+## Clinical Transcriptomic Data (GEO)
 
 Transcriptomic datasets from soft-tissue sarcoma patients were retrieved from the NCBI Gene Expression Omnibus (GEO):
 
@@ -28,7 +28,7 @@ Transcriptomic datasets from soft-tissue sarcoma patients were retrieved from th
 
 ---
 
-### Preclinical Transcriptomic Data — CCLE, GDSC, NCI-Sarcoma
+## Preclinical Transcriptomic Data — CCLE, GDSC, NCI-Sarcoma
 
 Microarray data from large-scale pharmacogenomic efforts:
 
@@ -46,7 +46,7 @@ Microarray data from large-scale pharmacogenomic efforts:
 
 ---
 
-### Drug Sensitivity Profiles 
+## Drug Sensitivity Profiles 
 
 Drug response data were obtained from:
 
@@ -59,8 +59,7 @@ Drug response data were obtained from:
 - Minimum of 10 STS cell lines required per drug for inclusion
 - Drug target annotations obtained from **DrugBank v5.1.X** and **ChEMBL** (manual curation for conflicts)
 
-```
-```
+
 
 ## Signature Sets: Curated Gene Expression Signatures
 
