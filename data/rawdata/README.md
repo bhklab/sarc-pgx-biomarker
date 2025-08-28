@@ -34,7 +34,7 @@ Microarray data from large-scale pharmacogenomic efforts:
 
 - **CCLE** – HG-U133 Plus 2.0 array (Broad Institute)
 - **GDSC** – HG-U219 array (Wellcome Sanger Institute)
-- **NCI-Sarcoma Panel** – Human Exon 1.0 ST array (NCI)
+- **NCI-Sarcoma** – Human Exon 1.0 ST array (NCI)
 
 **Processing Workflow:**
 - Affymetrix CEL files processed using RMA (via `affy` package v1.87.0)
@@ -59,6 +59,7 @@ Drug response data were obtained from:
 - Minimum of 10 STS cell lines required per drug for inclusion
 - Drug target annotations obtained from **DrugBank v5.1.X** and **ChEMBL** (manual curation for conflicts)
 
+```
 ```
 
 ## Signature Sets: Curated Gene Expression Signatures
