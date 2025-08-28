@@ -59,33 +59,44 @@ Drug response data were obtained from:
 - Minimum of 10 STS cell lines required per drug for inclusion
 - Drug target annotations obtained from **DrugBank v5.1.X** and **ChEMBL** (manual curation for conflicts)
 
+---
 
+## Gene Signature Sets: GSEA / ORA
 
-## Signature Sets: Curated Gene Expression Signatures
+Curated gene sets used for enrichment analysis:
 
-For downstream enrichment analyses (ORA, GSEA), we used curated gene signatures relevant to drug response and sarcoma biology. These are available from:
-
-- [**Hallmark & GO Terms** — MSigDB v2025.1](https://www.gsea-msigdb.org/gsea/msigdb/)
-- [**Precompiled RData File** — Zenodo DOI: TBD](TBD)
+- [**MSigDB v2025.1** – Hallmark & GO Terms](https://www.gsea-msigdb.org/gsea/msigdb/)
+- [**Custom RData Signature File (Zenodo DOI: TBD)**](TBD)
 
 ---
 
-## Inclusion & Exclusion Criteria
+## Validation Datasets — TCGA-SARC & NCT-MASTER
 
-Raw datasets and cell line profiles were selected based on:
+Used for external validation of candidate biomarkers:
 
-- Availability of expression data 
-- Relevance to soft-tissue sarcoma (based on histology or tissue label)
-- TBD ---> based on validation cohorts: TCGA and MASTER
-
-Refer to the **Materials and Methods** section of the manuscript for full details.
+- **TCGA-SARC (RNA-seq)** – The Cancer Genome Atlas Sarcoma cohort
+- **NCT-MASTER (RNA-seq)** – Precision oncology cohort from the DKFZ/NCT/DKTK (ClinicalTrials.gov: NCT05852522)
 
 ---
 
-## Additional Notes
+## Inclusion Criteria
 
-- GEO datasets were curated to remove samples with missing annotations or technical artifacts.
-- Only soft-tissue sarcoma–relevant cell lines were retained from ORCESTRA.
-- This directory is **read-only** during pipeline execution. All transformations and analyses are performed downstream in `data/procdata/`.
-- For full documentation of data versions and access dates, refer to `docs/data_sources.md`.
+Datasets were included based on:
+
+- Availability of transcriptomic and/or pharmacologic data
+- Relevance to soft-tissue sarcoma (histological or lineage annotation)
+- Sufficient sample/cell line representation (n ≥ 10 for modeling)
+- Compatibility with preprocessing workflows
+
+See the **Materials and Methods** section of the manuscript for full criteria.
+
+---
+
+## Directory Policy
+
+- This directory is **read-only** during pipeline execution
+- All downstream outputs are written to `data/procdata/`
+- Data versioning and access dates are documented in [`docs/data_sources.md`](../docs/data_sources.md)
+
+---
 
