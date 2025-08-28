@@ -212,6 +212,33 @@ p
 
 dev.off()
 
+##########################################################
+## All drugs 
+##########################################################
+dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
+sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
+
+drug <- unique(sig$drug)
+res <- lapply(1:length(drug), function(k){
+  
+  df <- dat[dat$drug == drug[k], "r"]
+  df
+  
+})
+
+res <- do.call(cbind, res)
+colnames(res) <- drug
+cor_res <- cor(res)
+
+pdf(file=file.path(dir_out, paste("cor_pcl", ".pdf", sep="")),
+     width = 10, height = 10)
+
+p <- corrplot(cor_res, type = "upper", order = "hclust", 
+              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
+p
+
+dev.off()
+
 ################################################################################
 ## Upper triangles
 ################################################################################
@@ -421,3 +448,29 @@ for(k in 1:length(dat_drug_class)){
   
 }
 
+##########################################################
+## Clinical drugs 
+##########################################################
+dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
+sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
+
+drug <- intersect(unique(sig$drug), clin_selected_drugs)
+res <- lapply(1:length(drug), function(k){
+  
+  df <- dat[dat$drug == drug[k], "r"]
+  df
+  
+})
+
+res <- do.call(cbind, res)
+colnames(res) <- drug
+cor_res <- cor(res)
+
+pdf(file=file.path(dir_out, paste("cor_pcl_clinical", ".pdf", sep="")),
+     width = 10, height = 10)
+
+p <- corrplot(cor_res, type = "upper", order = "hclust", 
+              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
+p
+
+dev.off()
