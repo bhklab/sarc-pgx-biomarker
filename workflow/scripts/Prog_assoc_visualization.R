@@ -23,6 +23,8 @@ library(VennDiagram)
 library(ComplexHeatmap)
 library(paletteer)
 library(dplyr)
+library(tidyr)
+library(ComplexUpset)
 
 ##################################################################
 ## Setup directory
@@ -30,6 +32,8 @@ library(dplyr)
 dir_in <- 'data/results/drug' 
 dir_out <- 'data/results/drug' 
 
+r.cutoff <- 0.30
+alpha.cutoff <- 0.05
 ##################################################################
 ## Load data
 ##################################################################
@@ -38,12 +42,10 @@ dat.ccle <- qread(file.path(dir_in, "gene_drug_assoc_sts_ccle_ctrp.qs"))
 dat.gdsc <- qread(file.path(dir_in, "gene_drug_assoc_sts_gdsc.qs"))
 dat.nci <- qread(file.path(dir_in, "gene_drug_assoc_sts_nci.qs"))
 
-r.cutoff <- 0.30
-
-sig.meta <- dat.meta[dat.meta$padj < 0.05 & abs(dat.meta$r) >= r.cutoff, ]
-sig.ccle <- dat.ccle[dat.ccle$padj < 0.05 & abs(dat.ccle$estimate) >= r.cutoff, ]
-sig.gdsc <- dat.gdsc[dat.gdsc$padj < 0.05 & abs(dat.gdsc$estimate) >= r.cutoff, ]
-sig.nci <- dat.nci[dat.nci$padj < 0.05 & abs(dat.nci$estimate) >= r.cutoff, ]
+sig.meta <- dat.meta[dat.meta$padj < alpha.cutoff & abs(dat.meta$r) >= r.cutoff, ]
+sig.ccle <- dat.ccle[dat.ccle$padj < alpha.cutoff & abs(dat.ccle$estimate) >= r.cutoff, ]
+sig.gdsc <- dat.gdsc[dat.gdsc$padj < alpha.cutoff & abs(dat.gdsc$estimate) >= r.cutoff, ]
+sig.nci <- dat.nci[dat.nci$padj < alpha.cutoff & abs(dat.nci$estimate) >= r.cutoff, ]
 
 # seelcted drugs
 selected_drugs <- read.csv(file = file.path(dir_in, 'selected_drugs.csv'))
@@ -131,30 +133,47 @@ dat_long <- dat_long |>
 
 dat_long <- dat_long[dat_long$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
 
-pdf(file= file.path(dir_out, "bar_sig_assoc_meta_studies_clinicalapproved.pdf"),
-     width = 8, height = 5)
+cap_val <- 1000
+dat_long$display_n <- ifelse(dat_long$n_sig > cap_val, cap_val, dat_long$n_sig)
 
-p <- ggplot(dat_long, aes(x = drug, y = n_sig, fill = Stage)) +
-     geom_bar(stat = "identity", width = 0.5) +
-     coord_flip() + 
-     scale_fill_manual(values = c("After integration" = "#d5ced7ff",   
-                                  "Before integration"  = "#401840ff") )  +
-    labs(x = " ",
-         y = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)",
-         title = " "
+pdf(file= file.path(dir_out, "bar_sig_assoc_meta_studies_clinicalapproved.pdf"),
+     width = 4, height = 4)
+
+# Create plot
+p <- ggplot(dat_long, aes(x = drug, y = display_n, fill = Stage)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  # Add label for capped bars
+#  geom_text(
+ #   data = subset(dat_long, n_sig > cap_val),
+  #  aes(y = cap_val + 50, label = n_sig),
+  #  size = 2.5
+  #) +
+  coord_flip() +
+  scale_fill_manual(values = c(
+    "After integration" = "#d5ced7ff",
+    "Before integration" = "#401840ff"
+  )) +
+  labs(
+    x = "",
+    y = "drug response–associated genes",
+    title = ""
   ) +
-  theme(axis.text.x=element_text(size=8),
-        axis.title.x=element_text(size=10),
-        axis.title.y=element_text(size=10),
-        axis.text.y=element_text(size=8),
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        plot.background = element_blank(), 
-        axis.line = element_line(colour = "black"),
-        legend.position=c(0.5,0.5),
-        legend.text = element_text(size = 7.5, face="bold"),
-        legend.title = element_blank())
+  theme(
+    axis.text.x = element_text(size = 8),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_line(colour = "black"),
+    legend.position = "inside",
+    legend.position.inside = c(0.85, 0.90),
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(3, "mm"), 
+    legend.title = element_blank()
+  )
 
 p
 
@@ -174,13 +193,13 @@ meta_long <- dat.meta %>%
   dplyr::transmute(gene_name, drug, r = r, padj, study = "Meta")
 
 eff_long <- dplyr::bind_rows(ccle_long, gdsc_long, nci_long, meta_long)
-eff_long <- eff_long [eff_long $padj < 0.05 & abs(eff_long$r) >= 0.30, ]
+eff_long <- eff_long [eff_long $padj < alpha.cutoff & abs(eff_long$r) >= 0.30, ]
 
 eff_long <- eff_long %>%
   dplyr::mutate(study = factor(study, levels = c("CCLE/CTRP","GDSC","NCI-Sarcoma","Meta")))
 
 pdf(file= file.path(dir_out, "violin_sig_assoc_meta_estimates.pdf"),
-     width = 5, height = 4)
+     width = 3.5, height = 3)
 
 p <- ggplot2::ggplot(eff_long, ggplot2::aes(x = study, y = r, fill = study)) +
   ggplot2::geom_violin(trim = TRUE, alpha = 0.85) +
@@ -194,12 +213,12 @@ p <- ggplot2::ggplot(eff_long, ggplot2::aes(x = study, y = r, fill = study)) +
   ggplot2::coord_cartesian(ylim = c(-1, 1)) +        # for correlations
   ggplot2::labs(
     x = NULL,
-    y = "gene–drug correlation (FDR < 0.05, |r| ≥ 0.30)",
+    y = "gene–drug correlation",
     title = ""
   ) +
     ggplot2::theme(axis.text.x=element_text(size=8),
-        axis.title.x=element_text(size=10),
-        axis.title.y=element_text(size=10),
+        axis.title.x=element_text(size=8),
+        axis.title.y=element_text(size=8),
         axis.text.y=element_text(size=8),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
@@ -207,7 +226,7 @@ p <- ggplot2::ggplot(eff_long, ggplot2::aes(x = study, y = r, fill = study)) +
         plot.background = element_blank(), 
         axis.line = element_line(colour = "black"),
         legend.position='none',
-        legend.text = element_text(size = 7.5, face="bold"),
+        legend.text = element_text(size = 8),
         legend.title = element_blank())
 
 p
@@ -222,7 +241,7 @@ drug <- unique(sig.meta$drug)
 sig <- sapply(1:length(drug), function(k){
   
   sub.meta <- sig.meta[sig.meta$drug == drug[k], ]
-  nrow(sub.meta[sub.meta$padj < 0.05 & abs(sub.meta$r) >= r.cutoff, ]) 
+  nrow(sub.meta[sub.meta$padj < alpha.cutoff & abs(sub.meta$r) >= r.cutoff, ]) 
   
 })
 
@@ -241,7 +260,7 @@ p <- ggplot(df, aes(x = reorder(drug, -number_sig), y = number_sig)) +
   geom_bar(width = 0.4, stat = "identity") +
   scale_fill_manual(values = c("#96A5A5FF")) +
   coord_flip()+
-  ylab(paste("drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)")) +
+  ylab(paste("drug response–associated genes")) +
   xlab("") +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x=element_text(size=6,  face="bold"),
@@ -269,7 +288,7 @@ drug <- unique(sig.meta$drug)
 sig <- sapply(1:length(drug), function(k){
   
   sub.meta <- sig.meta[sig.meta$drug == drug[k], ]
-  nrow(sub.meta[sub.meta$padj < 0.05 & abs(sub.meta$r) >= r.cutoff, ])
+  nrow(sub.meta[sub.meta$padj < alpha.cutoff & abs(sub.meta$r) >= r.cutoff, ])
   
 })
 
@@ -280,12 +299,12 @@ df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
 df[df$drug == "Unii-40E3azg1MX", "drug"] <- "BMS-536924" 
 df <- df[df$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
 
-df <- df[1:10, ] # select top 20 drugs
+df <- df[1:10, ] # select top 10 drugs
 
 sig_gene_drug <- lapply(1:nrow(df), function(k){
   
   sub_dat <- sig.meta[sig.meta$drug == df$drug[k], ]
-  sub_dat <- sub_dat[sub_dat$padj < 0.05 & abs(sub_dat$r) >= r.cutoff, ]
+  sub_dat <- sub_dat[sub_dat$padj < alpha.cutoff & abs(sub_dat$r) >= r.cutoff, ]
   sub_dat$gene_name
   
 })
@@ -293,11 +312,135 @@ sig_gene_drug <- lapply(1:nrow(df), function(k){
 names(sig_gene_drug) <- df$drug
 
 pdf(file= file.path(dir_out, "upset_sig_assoc_meta_top10_drugs_30PercCutoffCor_clinicalapproved.pdf"),
-     width = 12, height = 7)
+     width = 9, height = 5)
 
 upset(fromList(sig_gene_drug), nsets = 100 ,  order.by = c("freq", "degree"), decreasing = c(TRUE,FALSE),
-      mainbar.y.label = "drug response–associated genes (FDR < 0.05, |r| ≥ 0.30)", text.scale =1.2, 
+      mainbar.y.label = "drug response–associated genes", text.scale =1.2, 
       matrix.color = "#023743FF", main.bar.color = "#72874EFF", sets.bar.color = "#023743FF")
+
+dev.off()
+
+################################################################################
+## Complex Upset plot 
+################################################################################
+drug <- unique(sig.meta$drug)
+sig <- sapply(1:length(drug), function(k){
+  
+  sub.meta <- sig.meta[sig.meta$drug == drug[k], ]
+  nrow(sub.meta[sub.meta$padj < alpha.cutoff & abs(sub.meta$r) >= r.cutoff, ])
+  
+})
+
+df <- data.frame(number_sig = sig, drug= drug) 
+df <- df[df$number_sig != 0, ]
+df <- df[order(df$number_sig, decreasing = TRUE), ]
+df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
+df[df$drug == "Unii-40E3azg1MX", "drug"] <- "BMS-536924" 
+df <- df[df$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
+
+df <- df[1:10, ] # select top 10 drugs
+
+sig_gene_drug <- lapply(1:nrow(df), function(k){
+  
+  sub_dat <- sig.meta[sig.meta$drug == df$drug[k], ]
+  sub_dat[sub_dat$padj < alpha.cutoff & abs(sub_dat$r) >= r.cutoff, ]
+  
+})
+
+sig_gene_drug  <- do.call(rbind, sig_gene_drug )
+
+# load MOA data
+load(file.path('data/results/MOA', 'moa_info.rda'))
+moa_info <- lapply(1:length(dat_drug_class), function(k){
+
+ data.frame(moa = names(dat_drug_class)[k],
+            drug = dat_drug_class[[k]])
+
+})
+moa_info <- do.call(rbind, moa_info)
+
+# add MOA data 
+sig_gene_drug2 <- merge(sig_gene_drug, moa_info, by = "drug", all.x = TRUE)
+
+# Step 1: Gene sets per drug
+gene_sets <- split(sig_gene_drug2$gene_name, sig_gene_drug2$drug)
+m <- make_comb_mat(gene_sets)
+m <- m[comb_size(m) >= 5]
+
+# Step 2: MOA annotation
+drug_moa <- sig_gene_drug2 %>%
+  select(drug, moa) %>%
+  distinct()
+
+drug2moa <- setNames(drug_moa$moa, drug_moa$drug)
+moa_classes <- unique(na.omit(drug_moa$moa))
+moa_colors <- moa_colors <- c(
+  "DNA replication" = "#855C75FF",        
+  "ERK MAPK signaling" = "#9C6755FF",     
+  "Mitosis" = "#B1AF53FF",               
+  "Other" = "#d1d5dfff" ,                 
+  "PI3K MTOR signaling" = "#64894DFF",    
+  "RTK signaling" = "#526A83FF"          
+)                           
+
+left_annotation <- rowAnnotation(
+  MOA = drug2moa[set_name(m)],
+  col = list(MOA = moa_colors),
+  show_annotation_name = FALSE
+)
+
+# Step 3: Bottom annotation - boxplots
+comb_sets <- lapply(comb_name(m), function(nm) extract_comb(m, nm))
+drug_r_list <- lapply(comb_sets, function(genes) {
+sig_gene_drug2$r[sig_gene_drug2$gene_name %in% genes]
+})
+names(drug_r_list) <- comb_name(m)
+
+bottom_annotation <- HeatmapAnnotation(
+  'cor' = anno_boxplot(drug_r_list, 
+                       outline = FALSE, 
+                       ylim = c(-1, 1),
+                       gp = gpar(fill = "#e5edd8ff", col = "#373f41ff", lwd = 0.6),
+                       height = unit(1.5, "cm")),
+  'avg' = anno_points(
+  sapply(drug_r_list, mean),
+  gp = gpar(col = "#052026ff", pch = 16, cex = 0.8),  # dot style
+  ylim = c(-1, 1),
+  height = unit(1, "cm") ),
+  annotation_name_side = "left")  
+
+# Step 4: Top and Right annotations
+top_annotation <- upset_top_annotation(
+  m,
+  gp = gpar(fill = "#72874E"),
+  height = unit(5, "cm"),
+  axis_param = list(labels = FALSE),
+  add_numbers = TRUE,                             
+  numbers_gp = gpar(fontsize = 8, col = "black")
+) 
+
+right_annotation <- upset_right_annotation(
+  m,
+  gp = gpar(fill = "#023743"),  
+  width = unit(3, "cm")
+)
+
+# Step 5: Final UpSet plot with manually specified matrix
+pdf(file.path(dir_out, "complexupset_custom_moa_plot.pdf"), width = 12, height = 5)
+
+p <- UpSet(
+  m,
+  top_annotation = top_annotation,
+  right_annotation = right_annotation,
+  left_annotation = left_annotation,
+  bottom_annotation = bottom_annotation,
+  set_order = order(set_size(m), decreasing = TRUE),
+  comb_order = order(comb_size(m), decreasing = TRUE),
+  pt_size = unit(2, "mm"),
+  lwd = 1.2
+)
+
+draw(p)
 
 dev.off()
 
@@ -323,8 +466,8 @@ for(i in 1:length(drug)){
   res <- dat.meta[dat.meta$drug == drug[i], ]
   
   res$diffexpressed <- "NO"
-  res$diffexpressed[res$r > r.cutoff & res$padj < 0.05] <- "FDR < 0.05, r > 0.30"
-  res$diffexpressed[res$r < (-r.cutoff) & res$padj < 0.05] <- "FDR < 0.05, r < -0.30"  
+  res$diffexpressed[res$r > r.cutoff & res$padj < alpha.cutoff] <- "FDR < 0.05, r > 0.30"
+  res$diffexpressed[res$r < (-r.cutoff) & res$padj < alpha.cutoff] <- "FDR < 0.05, r < -0.30"  
   
   mycolors <- c( "#EF8A62","#67A9CF", "#999999" )
   names(mycolors) <- c("FDR < 0.05, r > 0.30", 
@@ -333,8 +476,8 @@ for(i in 1:length(drug)){
  
   res$delabel <- NA
   res <- res[order(res$padj, decreasing = FALSE), ]
-  id_pos <- res[res$r > r.cutoff & res$padj < 0.05, "gene_name"][1:25]
-  id_neg <- res[res$r < (-r.cutoff) & res$padj < 0.05, "gene_name"][1:25]
+  id_pos <- res[res$r > r.cutoff & res$padj < alpha.cutoff, "gene_name"][1:25]
+  id_neg <- res[res$r < (-r.cutoff) & res$padj < alpha.cutoff, "gene_name"][1:25]
   id <- c(id_pos, id_neg)
   id <- id[!is.na(id)]
   
@@ -389,7 +532,7 @@ drug <- unique(sig.meta$drug)
 sig <- sapply(1:length(drug), function(k){
   
   sub.meta <- sig.meta[sig.meta$drug == drug[k], ]
-  nrow(sub.meta[sub.meta$padj < 0.05 & abs(sub.meta$r) >= r.cutoff, ])
+  nrow(sub.meta[sub.meta$padj < alpha.cutoff & abs(sub.meta$r) >= r.cutoff, ])
   
 })
 
@@ -401,7 +544,7 @@ df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
 drugs <- df[df$number_sig >= 100, 'drug']
 
 sig.meta <- sig.meta[!is.na(sig.meta$r), ]
-sig <- sig.meta[sig.meta$padj < 0.05 & abs(sig.meta$r) >= r.cutoff, ]
+sig <- sig.meta[sig.meta$padj < alpha.cutoff & abs(sig.meta$r) >= r.cutoff, ]
 sig <- sig[order(sig$padj), ]
 
 for(k in 1:length(drugs)){
