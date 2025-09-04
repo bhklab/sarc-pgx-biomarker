@@ -38,6 +38,7 @@ library(corrplot)
 library(ggplot2)
 library(Hmisc)
 library(paletteer)
+library(ComplexHeatmap)
 
 ##################################################################
 ## Define function
@@ -115,15 +116,20 @@ moa_dat <- lapply(1:nrow(dat_drug), function(k){
 })
 
 moa_dat <- do.call(rbind, moa_dat)
-moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY %in% c("Other, kinases", "Other"), 
-                                  "Other", moa_dat$TARGET_PATHWAY)
+moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY %in% c("Other, kinases"), 
+                                  "Kinases", moa_dat$TARGET_PATHWAY)
 moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("PI3K/MTOR signaling"), 
                                   "PI3K MTOR signaling", moa_dat$TARGET_PATHWAY_updated)
 moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("RTK signaling///IGF1R signaling"), 
-                                  "IGF1R signaling", moa_dat$TARGET_PATHWAY_updated)
+                                  "RTK signaling", moa_dat$TARGET_PATHWAY_updated)
+moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("Chromatin histone acetylation", "Chromatin histone methylation", "Chromatin other"), 
+                                  "Chromatin regulation", moa_dat$TARGET_PATHWAY_updated)    
+moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("Protein stability and degradation"), 
+                                  "Proteostasis", moa_dat$TARGET_PATHWAY_updated)                                  
+
+# write.csv(moa_dat, file = file.path(dir_out, 'moa_dat.csv'), row.names = FALSE)
 
 target_pathway <- unique(moa_dat$TARGET_PATHWAY_updated)
-
 freq_target_pathway <- lapply(1:length(target_pathway), function(k){
   
  data.frame(target_pathway = target_pathway[k], 
@@ -154,12 +160,11 @@ dat_drug_class <- lapply(1:length(target_pathway_included), function(k){
 
 names(dat_drug_class) <- target_pathway_included
 save(dat_drug_class, file = file.path(dir_out, 'moa_info.rda'))
-write.csv(moa_dat, file = file.path(dir_out, 'moa_dat.csv'), row.names = FALSE)
 
 ################################################################################
 ## Pearson correlation as similarity metric (69 drugs) 
 ################################################################################
-load(file.path(dir_out, 'moa_info.rda'))
+# load(file.path(dir_out, 'moa_info.rda'))
 cor_res <- lapply(1:length(dat_drug_class), function(k){
   
   sub_res <- dat[dat$drug %in% dat_drug_class[[k]], ]
@@ -184,15 +189,15 @@ write.csv(cor_res, file=file.path(dir_out, "cor_pcl.csv"), row.names = FALSE)
 
 ## statistical test 
 fit <- kruskal.test(cor_res$cor ~ cor_res$target_pathway)
-# Kruskal-Wallis chi-squared = 63.698, df = 11, p-value = 1.892e-09
+# Kruskal-Wallis chi-squared = 32.354, df = 12, p-value = 0.00122
 
 ################################################################################
 ## Boxplot for all the pharmacological classes
 ################################################################################
-p_value <- fit$p.value
+p_value <- round(fit$p.value, 3)
 p_label <- paste0("p = ", signif(p_value, 3))
 
-top_pathway <- levels(reorder(cor_res$target_pathway, -cor_res$cor))[12]
+top_pathway <- levels(reorder(cor_res$target_pathway, -cor_res$cor))[13]
 
 pdf(file= file.path(dir_out, "boxplot_pcl.pdf"), 
      width = 4, height = 4)
@@ -221,35 +226,8 @@ p
 
 dev.off()
 
-##########################################################
-## All drugs 
-##########################################################
-dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
-sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
-
-drug <- unique(sig$drug)
-res <- lapply(1:length(drug), function(k){
-  
-  df <- dat[dat$drug == drug[k], "r"]
-  df
-  
-})
-
-res <- do.call(cbind, res)
-colnames(res) <- drug
-cor_res <- cor(res)
-
-pdf(file=file.path(dir_out, paste("cor_pcl", ".pdf", sep="")),
-     width = 10, height = 10)
-
-p <- corrplot(cor_res, type = "upper", order = "hclust", 
-              tl.col = "black", tl.srt = 90, tl.cex = 0.8)
-p
-
-dev.off()
-
 ################################################################################
-## Upper triangles
+## Per drug: Upper triangles
 ################################################################################
 
 for(k in 1:length(dat_drug_class)){
@@ -286,7 +264,7 @@ for(k in 1:length(dat_drug_class)){
 }
 
 ##########################################################
-## All drugs 
+## All drugs:  Upper triangles 
 ##########################################################
 dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
 sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
@@ -312,6 +290,94 @@ p
 
 dev.off()
 
+##########################################################
+## All drugs:  heatmap 
+##########################################################
+dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
+sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
+
+drug <- unique(sig$drug)
+res <- lapply(1:length(drug), function(k){
+  
+  df <- dat[dat$drug == drug[k], "r"]
+  df
+  
+})
+
+res <- do.call(cbind, res)
+colnames(res) <- drug
+cor_res <- cor(res)
+
+# MOA class
+load(file.path(dir_out, 'moa_info.rda'))
+moa_info <- lapply(1:length(dat_drug_class), function(k){
+
+ data.frame(moa = names(dat_drug_class)[k],
+            drug = dat_drug_class[[k]])
+
+})
+moa_info <- do.call(rbind, moa_info)
+
+int <- intersect(moa_info$drug, drug)
+cor_res <- cor_res[int, int]
+
+moa_ann <- lapply(1:length(int), function(k){
+data.frame(drug = int[k], 
+           moa = unique(moa_info[moa_info$drug == int[k], 'moa']))
+})
+moa_ann <- do.call(rbind, moa_ann)
+moa_ann$moa <- factor(moa_ann$moa)
+
+col = list("MOA" = c("Apoptosis regulation" = "#D2C396FF",
+                     "Cell cycle" = "#78847FFF" ,
+                     "Chromatin regulation" = "#ACC2CFFF",
+                     "DNA replication" = "#855C75FF",
+                     "EGFR signaling" = "#819574ff", 
+                     "ERK MAPK signaling" = "#9C6755FF",
+                     "Genome integrity" = "#877772ff",
+                     "IGF1R signaling" = "#8491BEFF",
+                     "Kinases" = "#8097e8ff",
+                     "Mitosis" = "#B1AF53FF", 
+                     "Other" = "#d1d5dfff",
+                     "PI3K MTOR signaling" = "#64894DFF", 
+                     "RTK signaling" = "#526A83FF") ) 
+
+#Create the heatmap annotation
+ha <- HeatmapAnnotation(
+  "MOA" = moa_ann$moa,
+   col = col, 
+   annotation_name_gp = gpar(fontsize = 7),       
+   annotation_legend_param = list(
+    title_gp = gpar(fontsize = 7),               
+    labels_gp = gpar(fontsize = 6),
+    grid_width = unit(3, "mm"),
+    grid_height= unit(3, "mm")  
+  ))
+
+# Combine the heatmap and the annotation
+pdf(file=file.path(dir_out, paste("cor_pcl_heatmap", ".pdf", sep="")),
+     width = 7, height =6.5)
+
+ht_data <- Heatmap(cor_res, name = "cor",
+                   cluster_rows = FALSE,
+                   cluster_columns = FALSE,
+                   top_annotation = ha,
+                   #right_annotation = row_annot,
+                   row_names_gp = gpar(fontsize = 7),
+                   column_names_gp = gpar(fontsize = 6, angel = 45),
+                   row_names_side = "left", 
+                   heatmap_legend_param = list(title_gp = gpar(fontsize = 7),   
+                                               labels_gp = gpar(fontsize = 7),
+                                               grid_width = unit(3, "mm"),   
+                                               grid_height= unit(3, "mm")),
+                   colorRamp2(c(-1, 0, 1), c("#4685A0FF", "white", "#864568FF")))
+
+draw(ht_data,
+     merge_legends = TRUE,
+     heatmap_legend_side = "right")
+
+dev.off()
+
 #####################################################################################################################
 ################################################ clincial drugs #####################################################
 #####################################################################################################################
@@ -319,45 +385,8 @@ dev.off()
 selected_drugs <- read.csv(file.path(dir_in, 'selected_drugs.csv'))
 clin_selected_drugs <- selected_drugs[selected_drugs$sts == 'Yes', 'drug']
 
-dat_drug <- dat_drug[rownames(dat_drug) %in% clin_selected_drugs, ]
-## get the class of drugs
-moa_dat <- lapply(1:nrow(dat_drug), function(k){
-
-  sub_dat_drug <- dat_drug[rownames(dat_drug) == rownames(dat_drug)[k], ]
-  sub_dat_drug_prism <- dat_drug_prism[rownames(dat_drug_prism) == rownames(dat_drug)[k], ]
-
-  if(nrow(sub_dat_drug_prism) > 0){
-
-     data.frame(treatmentid = rownames(dat_drug)[k],
-             synonym = sub_dat_drug$SYNONYMS, 
-             drug_target = sub_dat_drug$TARGET,
-             TARGET_PATHWAY = sub_dat_drug$TARGET_PATHWAY,
-             inchikey = sub_dat_drug$inchikey,
-             target = sub_dat_drug_prism$target,
-             moa = sub_dat_drug_prism$moa,
-             FDA =sub_dat_drug$FDA )
-  }else{
-
-   data.frame(treatmentid = rownames(dat_drug)[k],
-             synonym = sub_dat_drug$SYNONYMS, 
-             drug_target = sub_dat_drug$TARGET,
-             TARGET_PATHWAY = sub_dat_drug$TARGET_PATHWAY,
-             inchikey = sub_dat_drug$inchikey,
-             target = NA,
-             moa = NA,
-             FDA =sub_dat_drug$FDA )
-
-  }
-   
-})
-
-moa_dat <- do.call(rbind, moa_dat)
-moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY %in% c("Other, kinases", "Other"), 
-                                  "Other", moa_dat$TARGET_PATHWAY)
-moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("PI3K/MTOR signaling"), 
-                                  "PI3K MTOR signaling", moa_dat$TARGET_PATHWAY_updated)
-moa_dat$TARGET_PATHWAY_updated <- ifelse(moa_dat$TARGET_PATHWAY_updated %in% c("RTK signaling///IGF1R signaling"), 
-                                  "IGF1R signaling", moa_dat$TARGET_PATHWAY_updated)
+moa_dat <- read.csv(file.path(dir_out, 'moa_dat.csv'))
+moa_dat <- moa_dat[moa_dat$treatmentid %in% clin_selected_drugs, ]
 
 target_pathway <- unique(moa_dat$TARGET_PATHWAY_updated)
 freq_target_pathway <- lapply(1:length(target_pathway), function(k){
@@ -410,8 +439,7 @@ cor_res <- lapply(1:length(dat_drug_class), function(k){
   res <- rcorr(as.matrix(sub_res_matrix))
   data.frame(target_pathway = names(dat_drug_class)[k],
              flattenCorrMatrix(res$r, res$P) )
-  
-  
+    
 })
 
 cor_res <- do.call(rbind, cor_res)
@@ -430,7 +458,7 @@ p_label <- paste0("p = ", signif(p_value, 1))
 top_pathway <- levels(reorder(cor_res$target_pathway, -cor_res$cor))[4]
 
 pdf(file= file.path(dir_out, "boxplot_pcl_clinical.pdf"), 
-     width = 3, height = 3)
+     width = 3, height = 2.5)
 
 p <- ggplot(cor_res, aes(x=reorder(target_pathway, -cor), y=cor)) + 
   geom_boxplot(width = 0.5, fill= "#D8D8D8FF", color = "#181830FF") +
@@ -519,3 +547,85 @@ p <- corrplot(cor_res, type = "upper", order = "hclust",
 p
 
 dev.off()
+
+##########################################################
+## heatmap 
+##########################################################
+dat <- qread(file.path(dir_in, "gene_drug_assoc_sts_meta.qs"))
+sig <- dat[dat$padj < 0.05 & abs(dat$r) >= 0.3, ]
+
+drug <- intersect(unique(sig$drug), clin_selected_drugs)
+res <- lapply(1:length(drug), function(k){
+  
+  df <- dat[dat$drug == drug[k], "r"]
+  df
+  
+})
+
+res <- do.call(cbind, res)
+colnames(res) <- drug
+cor_res <- cor(res)
+
+# MOA class
+load(file.path(dir_out, 'moa_info_clinical.rda'))
+moa_info <- lapply(1:length(dat_drug_class), function(k){
+
+ data.frame(moa = names(dat_drug_class)[k],
+            drug = dat_drug_class[[k]])
+
+})
+moa_info <- do.call(rbind, moa_info)
+
+int <- intersect(moa_info$drug, drug)
+cor_res <- cor_res[int, int]
+
+moa_ann <- lapply(1:length(int), function(k){
+data.frame(drug = int[k], 
+           moa = unique(moa_info[moa_info$drug == int[k], 'moa']))
+})
+moa_ann <- do.call(rbind, moa_ann)
+moa_ann$moa <- factor(moa_ann$moa)
+
+col = list("MOA" = c("DNA replication" = "#855C75FF",
+                     "ERK MAPK signaling" = "#9C6755FF",
+                     "Other" = "#d1d5dfff",
+                     "RTK signaling" = "#526A83FF") ) 
+
+#Create the heatmap annotation
+ha <- HeatmapAnnotation(
+  "MOA" = moa_ann$moa,
+   col = col, 
+   annotation_name_gp = gpar(fontsize = 5),   
+   simple_anno_size = unit(2.5, "mm"),    
+   annotation_legend_param = list(
+    title_gp = gpar(fontsize = 5),               
+    labels_gp = gpar(fontsize = 5),
+    grid_width = unit(2.5, "mm"),
+    grid_height= unit(2, "mm")  
+  ))
+
+# Combine the heatmap and the annotation
+pdf(file=file.path(dir_out, paste("cor_pcl_clinical_heatmap", ".pdf", sep="")),
+     width = 3.5, height =2.5)
+
+ht_data <- Heatmap(cor_res, name = "cor",
+                   cluster_rows = FALSE,
+                   cluster_columns = FALSE,
+                   top_annotation = ha,
+                   #right_annotation = row_annot,
+                   row_names_gp = gpar(fontsize = 5),
+                   column_names_gp = gpar(fontsize = 5),
+                   row_names_side = "left", 
+                   heatmap_legend_param = list(title_gp = gpar(fontsize = 5),   
+                                               labels_gp = gpar(fontsize = 5),
+                                               grid_width = unit(2, "mm"),   
+                                               grid_height= unit(2, "mm")),
+                   colorRamp2(c(-0.5, 0, 1), c("#4685A0FF", "white", "#864568FF")))
+
+draw(ht_data,
+     merge_legends = TRUE,
+     heatmap_legend_side = "right")
+
+dev.off()
+
+
