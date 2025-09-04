@@ -51,7 +51,7 @@ sig.nci <- dat.nci[dat.nci$padj < alpha.cutoff & abs(dat.nci$estimate) >= r.cuto
 selected_drugs <- read.csv(file = file.path(dir_in, 'selected_drugs.csv'))
 
 ###################################################################
-## Bar plot of each studies vs meta
+## Bar plot of each studies vs meta (clinical)
 ###################################################################
 before_union <- TRUE 
 
@@ -233,49 +233,131 @@ p
 
 dev.off()
 
+
 ###################################################################
-## Bar plot of late integration
+## Bar plot of each studies vs meta (all 69 drugs)
 ###################################################################
-sig.meta <- sig.meta[!is.na(sig.meta$r), ]
-drug <- unique(sig.meta$drug)
-sig <- sapply(1:length(drug), function(k){
-  
-  sub.meta <- sig.meta[sig.meta$drug == drug[k], ]
-  nrow(sub.meta[sub.meta$padj < alpha.cutoff & abs(sub.meta$r) >= r.cutoff, ]) 
-  
-})
+before_union <- TRUE 
 
-df <- data.frame(number_sig = sig, drug= drug) 
-df <- df[df$number_sig != 0 , ]
-df <- df[order(df$number_sig, decreasing = TRUE), ]
-df$drug <- ifelse( df$number_sig <= 10, "Other", df$drug )
+if (before_union) {
+  # Union of genes across studies per drug
+  before_tbl <- dplyr::bind_rows(
+      dplyr::select(sig.ccle, Ensembl_ID, drug),
+      dplyr::select(sig.gdsc, Ensembl_ID, drug),
+      dplyr::select(sig.nci,  Ensembl_ID, drug)
+    ) |>
+    dplyr::distinct(Ensembl_ID, drug) |>
+    dplyr::count(drug, name = "n_sig_before")
+} else {
+  # Sum of counts across studies per drug
+  cnt_ccle <- sig.ccle |> dplyr::count(drug, name = "n_ccle")
+  cnt_gdsc <- sig.gdsc |> dplyr::count(drug, name = "n_gdsc")
+  cnt_nci  <- sig.nci  |> dplyr::count(drug, name = "n_nci")
 
-df[df$drug == "Unii-40E3azg1MX", "drug"] <- "BMS-536924" 
-df <- df[df$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
+  before_tbl <- cnt_ccle |>
+    dplyr::full_join(cnt_gdsc, by = "drug") |>
+    dplyr::full_join(cnt_nci,  by = "drug") |>
+    dplyr::mutate(
+      dplyr::across(dplyr::starts_with("n_"), ~ tidyr::replace_na(.x, 0L)),
+      n_sig_before = n_ccle + n_gdsc + n_nci
+    ) |>
+    dplyr::select(drug, n_sig_before)
+}
 
-pdf(file= file.path(dir_out, "bar_sig_assoc_meta_30PercCutoffCor_clinicalapproved.pdf"),
-     width = 6, height = 6)
+# After integration
+after_tbl <- sig.meta |>
+  dplyr::distinct(Ensembl_ID, drug) |>
+  dplyr::count(drug, name = "n_sig_after")
 
-p <- ggplot(df, aes(x = reorder(drug, -number_sig), y = number_sig)) +
-  geom_bar(width = 0.4, stat = "identity") +
-  scale_fill_manual(values = c("#96A5A5FF")) +
-  coord_flip()+
-  ylab(paste("drug response–associated genes")) +
-  xlab("") +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x=element_text(size=6,  face="bold"),
-        axis.title.x=element_text(size=8,face="bold"),
-        axis.title.y=element_text(size=8,face="bold"),
-        axis.text.y=element_text(size=6, face = "bold"),
-        strip.text = element_text(size=8, face="bold"),
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        plot.background = element_blank(), 
-        axis.line = element_line(colour = "black"),
-        legend.position=c(0.85,0.85),
-        legend.text = element_text(size = 7.5, face="bold"),
-        legend.title = element_blank())
+# Determine total number of unique genes across all sources
+total_genes <- dplyr::bind_rows(
+    dplyr::select(sig.ccle, Ensembl_ID),
+    dplyr::select(sig.gdsc, Ensembl_ID),
+    dplyr::select(sig.nci,  Ensembl_ID),
+    dplyr::select(sig.meta, Ensembl_ID)
+  ) |>
+  dplyr::distinct(Ensembl_ID) |>
+  nrow()
+
+# Merge and calculate per-drug percentages
+dat <- dplyr::full_join(before_tbl, after_tbl, by = "drug") |>
+  dplyr::mutate(
+    n_sig_before = tidyr::replace_na(n_sig_before, 0L),
+    n_sig_after  = tidyr::replace_na(n_sig_after,  0L),
+    perc_sig_before = 100 * n_sig_before / total_genes,
+    perc_sig_after  = 100 * n_sig_after  / total_genes
+  )
+
+# Pivot to long format for plotting
+dat_long <- dat |>
+  tidyr::pivot_longer(
+    cols = c(n_sig_before, n_sig_after, perc_sig_before, perc_sig_after),
+    names_to = c(".value", "Stage"),
+    names_pattern = "(n_sig|perc_sig)_(before|after)"
+  ) |>
+  dplyr::mutate(
+    Stage = dplyr::recode(
+      Stage,
+      before = "Before integration",
+      after  = "After integration"
+    )
+  )
+
+# Order drugs by n_sig in "After" stage
+drug_order <- dat |>
+  dplyr::arrange(dplyr::desc(n_sig_after)) |>
+  dplyr::pull(drug)
+
+# Final formatting for plotting or reporting
+dat_long <- dat_long |>
+  dplyr::mutate(
+    drug  = factor(drug, levels = drug_order),
+    Stage = factor(Stage, levels = c("Before integration", "After integration"))
+  )
+
+# dat_long <- dat_long[dat_long$drug %in% selected_drugs[selected_drugs$sts == 'Yes', "drug"], ]
+
+cap_val <- 2000
+dat_long$display_n <- ifelse(dat_long$n_sig > cap_val, cap_val, dat_long$n_sig)
+
+pdf(file= file.path(dir_out, "bar_sig_assoc_meta_studies.pdf"),
+     width = 10, height = 4)
+
+# Create plot
+p <- ggplot(dat_long, aes(x = drug, y = n_sig, fill = Stage)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  # Add label for capped bars
+#  geom_text(
+ #   data = subset(dat_long, n_sig > cap_val),
+  #  aes(y = cap_val + 50, label = n_sig),
+  #  size = 2.5
+  #) +
+  # coord_flip() +
+  scale_fill_manual(values = c(
+    "After integration" = "#d5ced7ff",
+    "Before integration" = "#401840ff"
+  )) +
+  labs(
+    x = "",
+    y = "drug response–associated genes",
+    title = ""
+  ) +
+  theme(
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_line(colour = "black"),
+    legend.position = "inside",
+    legend.position.inside = c(0.85, 0.90),
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(3, "mm"), 
+    legend.title = element_blank()
+  )
 
 p
 
