@@ -14,13 +14,6 @@
 #   2. Dot plots for significant pathways by drug
 #   3. UpSet plots showing pathway overlap across drugs
 #   4. Heatmaps for pathway–drug significance and enrichment scores
-#
-# Notes:
-#   - Significance thresholds:
-#       * GSEA: FDR < 0.05
-#       * ORA:  FDR < 0.1
-#   - Input data loaded from `*.qs` files in `dir_in`
-#   - Figures saved to `dir_out`
 # -----------------------------------------------------------
 #############################################################
 ## Load libraries
@@ -46,8 +39,6 @@ dir_out <- 'data/results/pathway/figure'
 dir_moa <- 'data/results/moa'
 dir_drug <- 'data/procdata'
 
-thr_gsea <- 0.05
-thr_ora <- 0.10
 top_cutoff <- 30
 
 #################################################################
@@ -75,11 +66,13 @@ drug_class <- do.call(rbind, drug_class)
 #################################################################
 fgseaRes <- qread(file.path(dir_in, 'hallmark_gsea_pathway_drug.qs'))
 gsea_data <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
-gsea_data$pathway <- substr(gsea_data$pathway, 10, nchar(gsea_data$pathway))
+gsea_data$pathway <- tools::toTitleCase(tolower(substr(gsea_data$pathway, 10, nchar(gsea_data$pathway))))
+
+thr_gsea <- 0.10
 
 # compute median NES per pathway
 pathway_order <- gsea_data %>%
-  filter(padj <= 0.10) %>%
+  filter(padj <= thr_gsea) %>%
   group_by(pathway) %>%
   summarise(median_NES = median(NES, na.rm = TRUE)) %>%
   arrange(desc(median_NES)) %>%
@@ -87,7 +80,7 @@ pathway_order <- gsea_data %>%
 
 # order pathways by median NES (signed) across drugs
 gsea_data_filtered <- gsea_data %>%
-  filter(padj <= 0.10) %>%
+  filter(padj <= thr_gsea) %>%
   mutate(
     FDR_bin = cut(padj,
                   breaks = c(-Inf, 0.01, 0.05, 0.10, Inf),
@@ -116,7 +109,7 @@ ggplot(gsea_data_filtered, aes(x = drug, y = pathway)) +
   theme_minimal(base_size = 12) +
   theme(
   strip.text = element_text(face = "bold", size = 14),  # Larger facet titles
-  axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+  axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
   axis.text.y = element_text(size = 10),
   legend.text = element_text(size = 10),
   legend.title = element_text(size = 10),
@@ -139,19 +132,23 @@ dev.off()
 ############################################################
 fgseaRes <- qread(file.path(dir_in, 'hallmark_gsea_pathway_drug.qs'))
 gsea_data <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
-gsea_data$pathway <- substr(gsea_data$pathway, 10, nchar(gsea_data$pathway))
+gsea_data$pathway <- tools::toTitleCase(tolower(substr(gsea_data$pathway, 10, nchar(gsea_data$pathway))))
+
+thr_gsea <- 0.10
+top_n_pathways <- 20
 
 # compute median NES per pathway
 pathway_order <- gsea_data %>%
-  filter(padj <= 0.10) %>%
+  filter(padj <= thr_gsea) %>%
   group_by(pathway) %>%
   summarise(median_abs_NES = median(abs(NES), na.rm = TRUE)) %>%
   arrange(desc(median_abs_NES)) %>%
+  slice_head(n = top_n_pathways) %>%
   pull(pathway)
 
 # order pathways by median NES (signed) across drugs
 gsea_data_filtered <- gsea_data %>%
-  filter(padj <= 0.10) %>%
+  filter(pathway %in% pathway_order, padj <= thr_gsea) %>%
   mutate(
     FDR_bin = cut(padj,
                   breaks = c(-Inf, 0.01, 0.05, 0.10, Inf),
@@ -159,8 +156,8 @@ gsea_data_filtered <- gsea_data %>%
     pathway = factor(pathway, levels = pathway_order)
   ) 
 
-pdf(file=file.path(dir_out, "heatmap_dot_hallmark_gsea_abs.pdf"), 
-width = 10, height = 10)
+pdf(file=file.path(dir_out, "heatmap_dot_hallmark_gsea_abs_top20.pdf"), 
+width = 10, height = 7)
 
 ggplot(gsea_data_filtered, aes(x = drug, y = pathway)) +
   geom_point(aes(size = abs(NES), fill = FDR_bin), shape = 21, color = "black") +
@@ -200,8 +197,11 @@ dev.off()
 fgseaRes <- qread(file.path(dir_in, 'hallmark_gsea_pathway_drug.qs'))
 foraRes <- qread(file.path(dir_in, 'hallmark_ora_pathway_drug.qs'))
 
-fgseaRes$pathway <- substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))
-foraRes$pathway <- substr(foraRes$pathway, 10, nchar(foraRes$pathway))
+fgseaRes$pathway <- tools::toTitleCase(tolower(substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))))
+foraRes$pathway <- tools::toTitleCase(tolower(substr(foraRes$pathway, 10, nchar(foraRes$pathway))))
+
+thr_gsea <- 0.05
+thr_ora <- 0.15
 
 # GSEA results: keep relevant columns
 gsea_data <- fgseaRes %>%
@@ -217,9 +217,9 @@ ora_data <- foraRes %>%
 merged <- gsea_data %>%
   left_join(ora_data, by = c("drug", "pathway")) %>%
   mutate(
-    gsea_sig = padj_gsea <= 0.05,
-    ora_sig  = padj_ora <= 0.05,
-    both_sig = gsea_sig & gsea_sig
+    gsea_sig = padj_gsea <= thr_gsea,
+    ora_sig  = padj_ora <= thr_ora,
+    both_sig = gsea_sig & ora_sig
   )
 
 merged <- merged %>%
@@ -262,9 +262,8 @@ filtered_class_summary$pathway_order <- factor(filtered_class_summary$pathway,
 filtered_class_summary$moa_order <- factor(filtered_class_summary$moa,
                                      levels = sort(unique(filtered_class_summary$moa)))
 
-
 pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_ora_moa.pdf"), 
-width = 10, height = 11)
+width = 10, height = 7)
 
 ggplot(filtered_class_summary, aes(x = moa_order, y = pathway_order, fill = mean_NES)) +
    geom_tile(color = "#686969ff") +
@@ -314,20 +313,20 @@ fgseaRes$leadingEdge <- strsplit(fgseaRes$leadingEdge, ",")
 fgseaRes$leadingEdge <- lapply(fgseaRes$leadingEdge, trimws)
 
 # Clean pathway names
-fgseaRes$pathway <- substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))
+fgseaRes$pathway <- tools::toTitleCase(tolower(substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))))
 
 # Keep only selected drugs
 fgseaRes <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
 
 # Keep only significant results
-fgseaRes <- fgseaRes[fgseaRes$padj < 0.05, ]
+fgseaRes <- fgseaRes[fgseaRes$padj < thr_gsea, ]
 
 #id <- "E2F_TARGETS"
 #core_drugs <- c(
 #  "Temozolomide", "Venetoclax", "Dabrafenib", "Tamoxifen", "Doxorubicin",
 #  "Nintedanib", "Panobinostat", "Cabozantinib", "Nilotinib", "Crizotinib")
 
-id <- "G2M_CHECKPOINT"
+id <- "G2m_checkpoint"
 core_drugs <- c(
   "Temozolomide", "Venetoclax", "Dabrafenib", "Tamoxifen", "Doxorubicin",
   "Nintedanib",  "Cabozantinib", "Nilotinib", "Crizotinib")
@@ -403,7 +402,7 @@ dev.off()
 
 
 ############################################################
-## Heatmap figure: E2F_TARGETS
+## Heatmap figure: E2f_targets and/or G2m_checkpoint
 ############################################################
 ## pathway result
 fgseaRes <- qread(file.path(dir_in, "hallmark_gsea_pathway_drug.qs"))
@@ -413,15 +412,15 @@ fgseaRes$leadingEdge <- strsplit(fgseaRes$leadingEdge, ",")
 fgseaRes$leadingEdge <- lapply(fgseaRes$leadingEdge, trimws)
 
 # Clean pathway names
-fgseaRes$pathway <- substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))
+fgseaRes$pathway <- tools::toTitleCase(tolower(substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))))
 
 # Keep only selected drugs
 fgseaRes <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
 
 # Keep only significant results
-fgseaRes <- fgseaRes[fgseaRes$padj < 0.05, ]
+fgseaRes <- fgseaRes[fgseaRes$padj < thr_gsea, ]
 
-id <- "E2F_TARGETS"
+id <- "G2m_checkpoint"
 core_drugs <- c(
   "Temozolomide", "Venetoclax", "Dabrafenib", "Tamoxifen", "Doxorubicin",
   "Nintedanib", "Panobinostat", "Cabozantinib", "Nilotinib", "Crizotinib"
@@ -481,8 +480,8 @@ ha <- HeatmapAnnotation(
     grid_height= unit(3, "mm")  
   ))
 
-pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_e2f.pdf"), 
-width = 5, height = 9)
+pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_g2m_v2.pdf"), 
+width = 4, height = 7)
 
 Heatmap(
   m,
@@ -496,7 +495,7 @@ Heatmap(
   row_title = " ",
   column_title = " ",
   column_order = seq_len(ncol(m)),
-  column_names_gp = gpar(fontsize = 8),
+  column_names_gp = gpar(fontsize = 6),
   row_names_gp = gpar(fontsize = 6),
   cell_fun = function(j, i, x, y, width, height, fill) {
     grid.rect(
@@ -510,8 +509,6 @@ Heatmap(
 
 dev.off()
 
-
-
 ############################################################
 ## Heatmap figure: G2M_CHECKPOINT
 ############################################################
@@ -523,7 +520,7 @@ fgseaRes$leadingEdge <- strsplit(fgseaRes$leadingEdge, ",")
 fgseaRes$leadingEdge <- lapply(fgseaRes$leadingEdge, trimws)
 
 # Clean pathway names
-fgseaRes$pathway <- substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))
+fgseaRes$pathway <- tools::toTitleCase(tolower(substr(fgseaRes$pathway, 10, nchar(fgseaRes$pathway))))
 
 # Keep only selected drugs
 fgseaRes <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
@@ -531,7 +528,7 @@ fgseaRes <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
 # Keep only significant results
 fgseaRes <- fgseaRes[fgseaRes$padj < 0.05, ]
 
-id <- "G2M_CHECKPOINT"
+id <- "G2m_checkpoint"
 core_drugs <- c(
   "Temozolomide", "Venetoclax", "Dabrafenib", "Tamoxifen", "Doxorubicin",
   "Nintedanib", "Panobinostat", "Cabozantinib", "Nilotinib", "Crizotinib"
