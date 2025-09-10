@@ -51,9 +51,6 @@ thr_ora <- 0.15
 hallmark_pathway <- gmtPathways(file.path(dir_pathway, "h.all.v2025.1.Hs.symbols.gmt"))
 go_pathway <- gmtPathways(file.path(dir_pathway, "c5.go.bp.v2025.1.Hs.symbols.gmt"))
 
-dat <- list(HALLMARK = hallmark_pathway, GO = go_pathway)
-qsave(dat, file=  file.path(dir_pathway, "pathway_data.qs"))
-
 ###################################################
 ## GSEA: STS gene association result and HALLMARK
 ###################################################
@@ -85,9 +82,11 @@ gsea_hallmark <- lapply(1:length(drugs), function(i){
 
 gsea_hallmark <- do.call(rbind, gsea_hallmark)
 gsea_hallmark <- gsea_hallmark[!is.na(gsea_hallmark$pval), ]
+sig <- gsea_hallmark[gsea_hallmark$padj < 0.1, ]
 
 qsave(gsea_hallmark, file= file.path(dir_out, "hallmark_gsea_pathway_drug.qs"))
 write.csv(gsea_hallmark, file = file.path(dir_out, "hallmark_gsea_pathway_drug.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "hallmark_gsea_pathway_drug_0.1.csv"), row.names = FALSE)
 
 ###################################################
 ## GSEA: STS gene association result and GO
@@ -116,10 +115,11 @@ gsea_go <- lapply(1:length(drugs), function(i){
 
 gsea_go <- do.call(rbind, gsea_go)
 gsea_go <- gsea_go[!is.na(gsea_go$pval), ]
+sig <- gsea_go[gsea_go$padj < 0.1, ]
 
 qsave(gsea_go, file= file.path(dir_out, "go_gsea_pathway_drug.qs"))
 write.csv(gsea_go, file = file.path(dir_out, "go_gsea_pathway_drug.csv"), row.names = FALSE)
-
+write.csv(sig, file = file.path(dir_out, "go_gsea_pathway_drug_0.1.csv"), row.names = FALSE)
 
 ################################################################################
 ## ORA: STS gene association result and HALLMARK
@@ -163,9 +163,11 @@ ora_hallmark <- lapply(1:length(drugs), function(i){
 
 ora_hallmark <- dplyr::bind_rows(ora_hallmark)
 ora_hallmark <- ora_hallmark[!is.na(ora_hallmark$pval), ]
+sig <-  ora_hallmark[ora_hallmark$padj < 0.15, ]
 
 qsave(ora_hallmark, file= file.path(dir_out, "hallmark_ora_pathway_drug.qs"))
 write.csv(ora_hallmark, file = file.path(dir_out, "hallmark_ora_pathway_drug.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "hallmark_ora_pathway_drug_0.15.csv"), row.names = FALSE)
 
 ################################################################################
 ## ORA: STS gene association result and Go
@@ -205,7 +207,10 @@ ora_go <- lapply(1:length(drugs), function(i){
 
 ora_go <- dplyr::bind_rows(ora_go)
 ora_go <- ora_go[!is.na(ora_go$pval), ]
+sig <- ora_go[ora_go$padj < 0.15, ]
 
 qsave(ora_go, file= file.path(dir_out, "go_ora_pathway_drug.qs"))
 write.csv(ora_go, file = file.path(dir_out, "go_ora_pathway_drug.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "go_ora_pathway_drug_0.15.csv"), row.names = FALSE)
+
 
