@@ -135,7 +135,7 @@ gsea_data <- fgseaRes[fgseaRes$drug %in% selected_drug_clin, ]
 gsea_data$pathway <- tools::toTitleCase(tolower(substr(gsea_data$pathway, 10, nchar(gsea_data$pathway))))
 
 thr_gsea <- 0.10
-top_n_pathways <- 20
+top_n_pathways <- 30
 
 # compute median NES per pathway
 pathway_order <- gsea_data %>%
@@ -156,8 +156,8 @@ gsea_data_filtered <- gsea_data %>%
     pathway = factor(pathway, levels = pathway_order)
   ) 
 
-pdf(file=file.path(dir_out, "heatmap_dot_hallmark_gsea_abs_top20.pdf"), 
-width = 10, height = 7)
+pdf(file=file.path(dir_out, "heatmap_dot_hallmark_gsea_abs_top30.pdf"), 
+width = 10, height = 8)
 
 ggplot(gsea_data_filtered, aes(x = drug, y = pathway)) +
   geom_point(aes(size = abs(NES), fill = FDR_bin), shape = 21, color = "black") +
@@ -263,7 +263,7 @@ filtered_class_summary$moa_order <- factor(filtered_class_summary$moa,
                                      levels = sort(unique(filtered_class_summary$moa)))
 
 pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_ora_moa.pdf"), 
-width = 10, height = 7)
+width = 8, height = 6)
 
 ggplot(filtered_class_summary, aes(x = moa_order, y = pathway_order, fill = mean_NES)) +
    geom_tile(color = "#686969ff") +
@@ -589,7 +589,7 @@ ha <- rowAnnotation(
   ))
 
 pdf(file=file.path(dir_out, "heatmap_hallmark_gsea_g2m.pdf"), 
-width = 9, height =3)
+width = 10, height =3)
 
 Heatmap(
   m,
