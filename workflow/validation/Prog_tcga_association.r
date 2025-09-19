@@ -1,53 +1,46 @@
 #--------------------------------------------------------------------------------
 ## Description:
-#   This script performs gene-level survival analysis on TCGA-SARC RNA-seq with
-#   two strategies and saves results for downstream pathway enrichment:
+#   This script performs gene-level survival analysis on TCGA-SARC RNA-seq data,
+#   using a **late integration (LI)** strategy to account for histological subtype heterogeneity.
 #
-#   (1) Early integration (EI): Pooled Cox model across all histologies
-#       without a histology term (i.e., no subtype correction).
-#
-#   (2) Late integration (LI): Per-histology Cox models, followed by a
-#       random-effects meta-analysis across histologies (DerSimonian–Laird
-#       with Hartung–Knapp adjustment) to obtain a pooled log-HR and heterogeneity.
+#   Strategy:
+#   (1) Late integration (LI): Per-histology Cox models are first computed independently.
+#       These are then integrated using a random-effects meta-analysis (DerSimonian–Laird
+#       with Hartung–Knapp adjustment) to obtain a pooled log-HR and assess heterogeneity.
 #
 # Required input:
 #   - SummarizedExperiment (qs): data/procdata/validation/curated_TCGA_se.qs
 #       * assay(dat): gene expression matrix (genes × samples)
-#       * colData(dat): clinical data with os_time (months) and os_event (0/1),
-#                       histological (histology labels), patientid (sample ID)
+#       * colData(dat): clinical data with os_time (months), os_event (0/1),
+#                       histological subtype labels (histological), and sample ID (patientid)
 #       * rowData(dat): gene annotations (row names must match expression genes)
 #
-# Outputs (written to data/results/validation/TCGA/):
-#   - cox_tcga.rda / cox_tcga.csv
-#       * EI (pooled) per-gene results across all histologies (no adjustment).
-#       * Columns: gene_name, HR (log-HR; Cox coef), SE, N,
-#                  Low/Up (95% CI on HR scale = exp(log-HR ± 1.96*SE)), pval, padj.
-#
+# Output files (written to data/results/validation/TCGA/):
 #   - cox_tcga_histo.rda / cox_tcga_histo.csv
-#       * Per-histology (subtype) per-gene results.
-#       * Columns: histo, gene_name, HR (log-HR), SE, N,
-#                  Low/Up (HR scale), pval, padj.
+#       * Per-histology (subtype-specific) Cox model results per gene.
+#       * Columns: histo, gene_name, HR (log-HR), SE, N, Low/Up (HR scale),
+#                  pval, padj (BH-corrected).
 #
 #   - meta_cox_tcga_histo.rda / meta_cox_tcga_histo.csv
-#       * Late-integration random-effects meta-analysis across histologies.
+#       * Late-integration meta-analysis across histologies.
 #       * Columns: Gene, Coef (pooled log-HR), SE, CI_lower/CI_upper (log-HR scale),
-#                  Pval, padj, I2, Q_Pval.
-#       * Requires ≥3 histology strata with estimable coefficients to run meta-analysis.
+#                  Pval, padj (BH), I2 (heterogeneity), Q_Pval (heterogeneity p).
+#       * Meta-analysis is only performed for genes with results in ≥3 histologies.
 #
 # Key analysis settings:
-#   - Administrative censoring at 36 months (time.censor = 36):
-#       times > 36 are truncated to 36 and status set to 0 at censoring.
-#   - Model form: Surv(time, status) ~ expression (single-gene models; no other covariates).
-#   - No histology correction in EI; LI operates via per-subtype fits → meta.
+#   - Remove low (or zero) expressed genes (zero expressed across 70% of samples)
+#   - Administrative censoring at 36 months (time.censor = 36).
+#       * Survival times > 36 months are right-censored at 36.
+#   - Model form: Surv(time, status) ~ expression
+#       * Per-gene univariate Cox models (no covariates other than gene expression).
 #
 # Dependencies:
 #   - qs, survival, data.table, magrittr, SummarizedExperiment, meta
-#   - (fgsea/ORA packages are used only in the companion pathway script)
 #
-# Conventions / scale:
-#   - “HR” columns in EI/per-histology tables are actually log-HR (Cox coefficients).
-#     Low/Up are on the HR scale (exponentiated). In the meta table, Coef and CIs
-#     are on the log-HR scale; exponentiate if you need HRs.
+# Notes:
+#   - "HR" refers to log hazard ratio (i.e., Cox model coefficient).
+#   - CI bounds (Low/Up) are exponentiated to reflect HR scale.
+#   - Meta-analysis outputs (Coef, CI) are in log-HR scale; exponentiate if needed.
 #--------------------------------------------------------------------------------
 ########################################################################
 ## Load library
@@ -57,9 +50,22 @@ library(qs)
 library(survival)
 library(data.table)
 library(magrittr)
-library(fgsea)
+library(meta)
 library(reshape2)
 library(SummarizedExperiment)
+
+########################################################################
+## Function to Remove low-expressed genes
+########################################################################
+
+ rem <- function (x, missing.perc, const.int){
+    x <- as.matrix(x)
+    x <- t(apply(x, 1, as.numeric))
+    r <- as.numeric(apply(x, 1, function(i) sum(round(i, 6) == 
+        round(log2(const.int), 6))))
+    remove <- which(r > dim(x)[2] * missing.perc)
+    return(remove)
+}
 
 ########################################################################
 ## Set up directroy
@@ -70,63 +76,18 @@ dir_out <- 'data/results/validation/TCGA'
 dir_pathway <-  'data/rawdata' 
 
 time.censor <- 36
+
 #######################################################################
 ## Load TCGA-SARC data
 #######################################################################
 dat <- qread(file.path(dir_in, 'curated_TCGA_se.qs'))
 
-expr <- assay(dat)
+expr <- assay(dat) # 16522 genes
 clin <- data.frame(colData(dat))
 annot <- data.frame(rowData(dat))
-########################################################################
-## Type 1: Fit proportional hazard model
-########################################################################
-## Integrate all subtypes and find association (early integration)
-res <- lapply(1:nrow(expr), function(k){
-
-data <- data.frame( status=clin$os_event , time=clin$os_time , variable=expr[k, ] )
-data <- data[!is.na(data$variable), ]
-data$time <- as.numeric(as.character(data$time))
-data$variable <- as.numeric( as.character(data$variable) )
-  
-for(i in 1:nrow(data)){
-    
-    if( !is.na(as.numeric(as.character(data[ i , "time" ]))) && as.numeric(as.character(data[ i , "time" ])) > time.censor ){
-      
-      data[ i , "time" ] <- time.censor
-      data[ i , "status" ] <- 0
-      
-    }
-  }
-  
-  cox <- coxph( Surv( time , status ) ~ variable, data=data )
-  
-  hr <- summary(cox)$coefficients[, "coef"]
-  se <- summary(cox)$coefficients[, "se(coef)"]
-  n <- round(summary(cox)$n)
-  low <- summary(cox)$conf.int[, "lower .95"]
-  up <- summary(cox)$conf.int[, "upper .95"]
-  pval <- summary(cox)$coefficients[, "Pr(>|z|)"]
-  
-data.frame(gene_name = rownames(expr)[k],
-           HR = hr,
-           SE = se,
-           N = n,
-           Low = low,
-           Up = up,
-           pval = pval)
-
-})
-
-res.cox <- do.call(rbind, res)
-res.cox <- res.cox[!is.na(res.cox$HR), ]
-res.cox$padj <- p.adjust(res.cox$pval, method = 'BH')
-
-save(res.cox, file = file.path(dir_out, 'cox_tcga.rda'))
-write.csv(res.cox, file = file.path(dir_out, "cox_tcga.csv"), row.names = FALSE)
 
 ########################################################################
-## Type 2: Fit proportional hazard model 
+## Fit proportional hazard model 
 ########################################################################
 ## Step 1: Find association per subtype
 group <- unique(clin$histological)
@@ -134,10 +95,15 @@ group <- unique(clin$histological)
 res.cox <- lapply(1:length(group), function(j){
 
 print(j)
+
 df.clin <- clin[clin$histological == group[j], ]
 df.expr <- expr[, colnames(expr) %in% df.clin$patientid]
 
-res <- lapply(1:nrow(expr), function(k){
+# filter out low-zero expressed genes
+remove <- rem(df.expr, 0.70, 1)
+df.expr <- df.expr[-remove, ] 
+
+res <- lapply(1:nrow(df.expr), function(k){
 
 data <- data.frame( status=df.clin$os_event , time=df.clin$os_time , variable=df.expr[k, ] )
 data <- data[!is.na(data$variable), ]
@@ -164,7 +130,7 @@ for(i in 1:nrow(data)){
   pval <- summary(cox)$coefficients[, "Pr(>|z|)"]
   
 data.frame(histo = group[j],
-           gene_name = rownames(expr)[k],
+           gene_name = rownames(df.expr)[k],
            HR = hr,
            SE = se,
            N = n,
@@ -185,11 +151,14 @@ res.cox <- do.call(rbind, res.cox)
 save(res.cox, file = file.path(dir_out, 'cox_tcga_histo.rda'))
 write.csv(res.cox, file = file.path(dir_out, "cox_tcga_histo.csv"), row.names = FALSE)
 
+########################################################################
+## Integration analysis 
+########################################################################
 ## Step 2: Integrate across subtypes
 load(file.path(dir_out, 'cox_tcga_histo.rda'))
-genes <- unique(res.cox$gene_name)
+genes <- unique(res.cox$gene_name) # 15481 genes
 
-meta.cox <- laooly(1:length(genes), function(k){
+meta.cox <- lapply(1:length(genes), function(k){
 
 data <- res.cox[res.cox$gene_name == genes[k], ]
 data <- data.frame( Gene = genes[k],
