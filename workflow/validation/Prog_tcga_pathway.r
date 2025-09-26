@@ -77,9 +77,11 @@ fgseaRes <- fgsea(hallmark_pathway,
 fgseaRes <- fgseaRes[!is.na(fgseaRes$padj), ]
 fgseaRes$leadingEdge <- sapply(fgseaRes$leadingEdge, paste, collapse = ",")
 fgseaRes <- fgseaRes[order(fgseaRes$padj, fgseaRes$NES, decreasing = c(FALSE, TRUE)), ]  
+sig <- fgseaRes[fgseaRes$padj < 0.10, ]
 
 qsave(fgseaRes, file= file.path(dir_out, "hallmark_gsea_pathway.qs"))
 write.csv(fgseaRes, file = file.path(dir_out, "hallmark_gsea_pathway.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "hallmark_gsea_pathway_0.1.csv"), row.names = FALSE)
 
 ###################################################
 ## GSEA and GO:BP
@@ -101,9 +103,11 @@ fgseaRes <- fgsea(go_pathway,
 fgseaRes <- fgseaRes[!is.na(fgseaRes$padj), ]
 fgseaRes$leadingEdge <- sapply(fgseaRes$leadingEdge, paste, collapse = ",")
 fgseaRes <- fgseaRes[order(fgseaRes$padj, fgseaRes$NES, decreasing = c(FALSE, TRUE)), ]  
+sig <- fgseaRes[fgseaRes$padj < 0.1, ]
 
 qsave(fgseaRes, file= file.path(dir_out, "go_gsea_pathway.qs"))
 write.csv(fgseaRes, file = file.path(dir_out, "go_gsea_pathway.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "go_gsea_pathway_0.1.csv"), row.names = FALSE)
 
 ################################################################################
 ## ORA and HALLMARK
@@ -124,9 +128,11 @@ ora_res  <- as.data.frame(ora_res)
 ora_res  <- ora_res[!is.na(ora_res$padj), ]
 ora_res$overlapGenes <- sapply(ora_res$overlapGenes, paste, collapse = ",")
 ora_res <- ora_res[order(ora_res$padj, ora_res$pval), ]
+sig <- ora_res[ora_res$padj < 0.15, ]
 
 qsave(ora_res, file= file.path(dir_out, "hallmark_ora_pathway.qs"))
 write.csv(ora_res, file = file.path(dir_out, "hallmark_ora_pathway.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "hallmark_ora_pathway_0.15.csv"), row.names = FALSE)
 
 ################################################################################
 ## ORA and Go
@@ -147,6 +153,8 @@ ora_res  <- as.data.frame(ora_res)
 ora_res  <- ora_res[!is.na(ora_res$padj), ]
 ora_res$overlapGenes <- sapply(ora_res$overlapGenes, paste, collapse = ",")
 ora_res <- ora_res[order(ora_res$padj, ora_res$pval), ]
+sig <- ora_res[ora_res$padj < 0.15, ]
 
 qsave(ora_res, file= file.path(dir_out, "go_ora_pathway.qs"))
 write.csv(ora_res, file = file.path(dir_out, "go_ora_pathway.csv"), row.names = FALSE)
+write.csv(sig, file = file.path(dir_out, "go_ora_pathway_0.15.csv"), row.names = FALSE)
