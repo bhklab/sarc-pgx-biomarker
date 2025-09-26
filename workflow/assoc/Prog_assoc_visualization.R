@@ -49,7 +49,14 @@ sig.nci <- dat.nci[dat.nci$padj < alpha.cutoff & abs(dat.nci$estimate) >= r.cuto
 
 # seelcted drugs
 selected_drugs <- read.csv(file = file.path(dir_in, 'selected_drugs.csv'))
-
+genes <- c("DLX2", "STMN1", "SMO", 'BCL2', 'GLI1', "MAPK","RIPK4", "MDM2", 
+           "RPTOR", "PRKAA2", "AGL" , "RB1", "ATRX", "MYOCD",
+           "MCM2", "PTEN", 'TP53', 'MED12', 'HMGA2', 'RAD51B',
+           'TOP2A', 'ASPM', 'BUB1B', 'CEP55', 'PRC1',
+           'TXP2', 'ANLN', 'MELK', 'CDC20',
+           'KPNA2', 'CENPF', 'NUF2', 'BRCA2',
+           'ALK', 'FGFR3', 'FGFR4', 'FLT3',
+          'PAX3', 'PAX7', 'RET', 'PGR', 'RIC3', 'DPP6', 'ACKR1', 'TTK', 'KIF4A')
 ###################################################################
 ## Bar plot of each studies vs meta (clinical)
 ###################################################################
